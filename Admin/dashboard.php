@@ -1,375 +1,262 @@
 <?php 
-include('../inc/app_data.php');
-include '../database/connection.php'; 
+// include('../inc/app_data.php'); 
 
-if (empty($_SESSION['user_id'])) {
- 
-    $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
-    
-    header("Location: ../login");
-    exit;
-}
+// --- START MOCK DATA SECTION ---
+$app_name = "Secured Vote";
+$totalVoters = 12450;
+$totalVotesCast = 8922;
+$totalCandidates = 32;
+$activeElections = 3;
 
-// 1️⃣ User Growth Data (users registered per month)
-$sql_users = "SELECT DATE_FORMAT(created_at, '%b %Y') AS month, COUNT(*) AS total 
-              FROM users 
-              GROUP BY month 
-              ORDER BY MIN(created_at)";
-$stmt_users = $dbh->prepare($sql_users);
-$stmt_users->execute();
-$userGrowth = $stmt_users->fetchAll(PDO::FETCH_ASSOC);
+// Mock Voting Trend (Used for Line Chart)
+$votingTrend = [
+    ['time' => '08:00', 'votes' => 120],
+    ['time' => '10:00', 'votes' => 450],
+    ['time' => '12:00', 'votes' => 1290],
+    ['time' => '14:00', 'votes' => 1820],
+    ['time' => '16:00', 'votes' => 910],
+    ['time' => '18:00', 'votes' => 350]
+];
 
-// 2️⃣ Revenue Trend (sum of plan price per month)
-$sql_revenue = "SELECT DATE_FORMAT(s.start_date, '%b %Y') AS month, 
-                       SUM(p.price) AS total_revenue
-                FROM subscriptions s
-                JOIN plans p ON s.plan_id = p.id
-                WHERE s.status = 'active'
-                GROUP BY month 
-                ORDER BY MIN(s.start_date)";
-$stmt_rev = $dbh->prepare($sql_revenue);
-$stmt_rev->execute();
-$revenueData = $stmt_rev->fetchAll(PDO::FETCH_ASSOC);
+// Mock Participation Breakdown (Used for Doughnut Chart)
+$departmentBreakdown = [
+    ['name' => 'Engineering', 'count' => 2200],
+    ['name' => 'Science', 'count' => 1950],
+    ['name' => 'Arts', 'count' => 1100],
+    ['name' => 'Business', 'count' => 1820],
+    ['name' => 'Law', 'count' => 950]
+];
 
-// 3️⃣ Active Subscriptions Breakdown (count by plan)
-$sql_plans = "SELECT p.name AS plan_name, COUNT(s.id) AS count
-              FROM subscriptions s
-              JOIN plans p ON s.plan_id = p.id
-              WHERE s.status = 'active'
-              GROUP BY p.name";
-$stmt_plans = $dbh->prepare($sql_plans);
-$stmt_plans->execute();
-$planBreakdown = $stmt_plans->fetchAll(PDO::FETCH_ASSOC);
+// Mock Recent Activity (Used for Table)
+$recentVotes = [
+    ['voter' => 'Chinedu Okeke', 'election' => 'Student Union 2026', 'time' => '1 min ago'],
+    ['voter' => 'Fatima Yusuf', 'election' => 'Faculty Rep', 'time' => '4 mins ago'],
+    ['voter' => 'Blessing Idris', 'election' => 'Student Union 2026', 'time' => '7 mins ago'],
+    ['voter' => 'Adebayo Samuel', 'election' => 'Student Union 2026', 'time' => '12 mins ago']
+];
 
-// 4️⃣ Questions Generated per Day (using question_usage)
-$sql_questions = "SELECT DATE(used_at) AS date, COUNT(*) AS total
-                  FROM question_usage
-                  GROUP BY DATE(used_at)
-                  ORDER BY DATE(used_at)";
-$stmt_q = $dbh->prepare($sql_questions);
-$stmt_q->execute();
-$questionsPerDay = $stmt_q->fetchAll(PDO::FETCH_ASSOC);
-
-// Fetch Activity Logs (limit 10)
-$sql_logs = "SELECT al.*, u.name as username 
-             FROM activity_logs al 
-             LEFT JOIN users u ON al.user_id = u.id 
-             ORDER BY al.id DESC 
-             LIMIT 10";
-$stmt_logs = $dbh->prepare($sql_logs);
-$stmt_logs->execute();
-$activityLogs = $stmt_logs->fetchAll(PDO::FETCH_ASSOC);
-
-// Fetch subscription records
-$query = "SELECT s.id AS sub_id, u.name AS user_name, p.name AS plan_name, p.price, s.start_date, s.end_date, s.status 
-          FROM subscriptions s 
-          JOIN users u ON s.user_id = u.id
-          JOIN plans p ON s.plan_id = p.id 
-          ORDER BY s.start_date DESC";
-$stmt = $dbh->prepare($query);
-$stmt->execute();
-$subscriptions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Mock System Logs (Used for Audit List)
+$activityLogs = [
+    ['username' => 'super_admin', 'action' => 'Published Results', 'ip_address' => '192.168.1.1'],
+    ['username' => 'officer_01', 'action' => 'Verified Candidate', 'ip_address' => '192.168.1.45'],
+    ['username' => 'system_bot', 'action' => 'Auto-Archived 2025', 'ip_address' => 'localhost']
+];
+// --- END MOCK DATA SECTION ---
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Admin Dashboard | AI Question Generator</title>
-  <?php include('partials/head.php');?>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body, html { height: 100%; display: flex; flex-direction: column; }
-    #content { flex: 1; }
-    footer { text-align: center; padding: 10px; }
-    canvas { min-height: 300px; }
-    .card-icon { float: right; font-size: 2rem; opacity: 0.2; }
-  .style1 {color: #000000}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | <?php echo $app_name; ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <link rel="stylesheet" href="assets/css/main.css" />
+
 </head>
 <body>
 
-<div class="d-flex flex-grow-1">
-  <!-- Sidebar -->
-  <nav id="sidebar" class="d-flex flex-column p-3">
-    <?php include('partials/sidebar.php'); ?>
-  </nav>
+<div id="sidebar-overlay"></div>
 
-  <!-- Page Content -->
-  <div id="content" class="flex-grow-1">
-    <!-- Navbar -->
-    <div class="navbar-custom d-flex justify-content-between align-items-center">
-      <div class="d-flex align-items-center">
-        <i class="fas fa-bars menu-toggle me-3 d-md-none" id="menuToggle"></i>
-        <h5>Welcome back, <strong><?php echo $row_user['name']; ?></strong></h5>
-      </div>
-      <div>
-        <a href="logout" class="btn btn-outline-danger">
-          <i class="fas fa-sign-out-alt me-1"></i> Logout
-        </a>
-      </div>
-    </div>
+<div class="d-flex">
+    <nav id="sidebar" class="d-flex flex-column p-3 shadow">
+        <?php include('partials/sidebar.php'); ?>
+    </nav>
 
-    <!-- Stats Cards -->
-    <div class="row g-4 mb-4">
-      <div class="col-md-3 col-sm-6">
-        <div class="card" style="background: linear-gradient(135deg, #007bff, #00bfff);">
-          <div class="card-body">
-            <h5>Total Users</h5>
-            <h3><?php echo $totalUsers; ?></h3>
-            <i class="fas fa-users card-icon"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-3 col-sm-6">
-        <div class="card" style="background: linear-gradient(135deg, #ffc107, #ffd966); color:#000;">
-          <div class="card-body">
-            <h5>No. of Students</h5>
-            <h3><?php echo $totalstudents; ?></h3>
-            <i class="fas fa-user-graduate card-icon"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-3 col-sm-6">
-        <div class="card" style="background: linear-gradient(135deg, #28a745, #71dd8a);">
-          <div class="card-body">
-            <h5>No. of Teacher(s)</h5>
-            <h3><?php echo $totalteachers; ?></h3>
-            <i class="fas fa-chalkboard-teacher card-icon"></i>
-          </div>
-        </div>
-      </div>
-<div class="col-md-3 col-sm-6">
-        <div class="card" style="background: linear-gradient(135deg, #191f1bff, #71dd8a);">
-          <div class="card-body">
-            <h5>No. of Parent(s)</h5>
-            <h3><?php echo $totalparents; ?></h3>
-            <i class="fas fa-user card-icon"></i>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card" style="background: linear-gradient(135deg, #dc3545, #f16a6f);">
-          <div class="card-body">
-            <h5>No. of Questions</h5>
-            <h3><?php echo $totalquestions; ?></h3>
-            <i class="fas fa-question-circle card-icon"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-3 col-sm-6">
-        <div class="card" style="background: linear-gradient(135deg, #6f42c1, #b084f5);">
-          <div class="card-body">
-            <h5>No. of Active Users</h5>
-            <h3><?php echo $activeUsers; ?></h3>
-            <i class="fas fa-user-check card-icon"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-3 col-sm-6">
-        <div class="card" style="background: linear-gradient(135deg, #85d191ff, #63e6be);">
-          <div class="card-body">
-            <h5>Total Subscriptions</h5>
-            <h3>₦<?= number_format($totalAmount,2) ?></h3>
-            <i class="fas fa-file-invoice-dollar card-icon"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-3 col-sm-6">
-        <div class="card" style="background: linear-gradient(135deg, #58535aff, #0c2920ff);">
-          <div class="card-body">
-            <h5>Total Subscriptions Monthly</h5>
-            <h3>₦<?= number_format($totalAmountMonth,2) ?></h3>
-            <i class="fas fa-file-invoice-dollar card-icon"></i>
-          </div>
-        </div>
-      </div>
-
-    <!-- Charts Section -->
-    <div class="card mb-4">
-      <div class="card-header"><h5 class="style1">Analytics Overview</h5>
-      </div>
-      <div class="card-body">
-        <div class="row">
-          <div class="col-md-6 mb-4">
-            <div class="card p-3">
-              <h5 class="style1">User Growth Overview</h5>
-              <canvas id="userGrowthChart"></canvas>
+    <div id="content" class="flex-grow-1">
+        <div class="navbar-custom d-flex justify-content-between align-items-center sticky-top">
+            <div class="d-flex align-items-center">
+                <button id="sidebarCollapse" class="btn btn-outline-secondary me-3 d-lg-none">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h6 class="mb-0 d-none d-sm-block text-muted">Control Panel / <strong>Analytics</strong></h6>
             </div>
-          </div>
-
-          <div class="col-md-6 mb-4">
-            <div class="card p-3">
-              <h5 class="style1">Revenue Trend</h5>
-              <canvas id="revenueChart"></canvas>
+            
+            <div class="dropdown">
+                <button class="btn btn-link text-dark text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="fas fa-user-circle"></i> <span class="d-none d-md-inline">Admin</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                    <li><a class="dropdown-item" href="profile"><i class="fas fa-user-edit me-2"></i> Profile</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-danger" href="logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
+                </ul>
             </div>
-          </div>
-
-          <div class="col-md-6 mb-4">
-            <div class="card p-3">
-              <h5 class="style1">Active Subscriptions Breakdown</h5>
-              <canvas id="subscriptionChart"></canvas>
-            </div>
-          </div>
-
-          <div class="col-md-6 mb-4">
-            <div class="card p-3">
-              <h5 class="style1">Questions Generated per Day</h5>
-              <canvas id="questionsChart"></canvas>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- ✅ Recent Subscriptions moved BELOW Charts -->
-    <div class="card mb-4">
-      <div class="card-header">
-        <h5 class="style1">Recent Subscriptions</h5>
-      </div>
-      <div class="card-body table-responsive">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>#</th><th>User</th><th>Plan</th><th>Price</th><th>Status</th><th>Start Date</th><th>End Date</th>
-            </tr>
-          </thead>
-          <tbody>
-          <?php if ($subscriptions): foreach ($subscriptions as $i => $r): ?>
-            <tr>
-              <td><?= $i+1 ?></td>
-              <td><?= htmlspecialchars($r['user_name']) ?></td>
-              <td><?= htmlspecialchars($r['plan_name']) ?></td>
-              <td>₦<?= number_format($r['price'],2) ?></td>
-              <td>
-                <?php if ($r['status']=='active'): ?><span class="badge bg-success">Active</span>
-                <?php elseif($r['status']=='expired'): ?><span class="badge bg-danger">Expired</span>
-                <?php else: ?><span class="badge bg-warning text-dark"><?= ucfirst($r['status']) ?></span><?php endif; ?>
-              </td>
-              <td><?= $r['start_date'] ?></td>
-              <td><?= $r['end_date'] ?></td>
-            </tr>
-          <?php endforeach; else: ?>
-            <tr><td colspan="7" class="text-center text-muted">No subscriptions found.</td></tr>
-          <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
+        <div class="p-3 p-md-4">
+            <div class="mb-4">
+                <h4 class="fw-bold">Dashboard Overview</h4>
+                <p class="text-muted small"><?php echo date('l, jS F Y'); ?></p>
+            </div>
 
-    <!-- ✅ Activity Logs moved BELOW Charts -->
-    <div class="card mb-4">
-      <div class="card-header"><h5 class="style1">Activity Logs</h5>
-      </div>
-      <div class="card-body table-responsive">
-        <table class="table table-striped">
-          <thead><tr><th>#</th><th>User</th><th>Action</th><th>Table</th><th>Record ID</th><th>IP</th></tr></thead>
-          <tbody>
-          <?php if ($activityLogs): foreach ($activityLogs as $i => $log): ?>
-            <tr>
-              <td><?= $i+1 ?></td>
-              <td><?= htmlspecialchars($log['username']) ?></td>
-              <td><?= htmlspecialchars($log['action']) ?></td>
-              <td><?= htmlspecialchars($log['table_name']) ?></td>
-              <td><?= htmlspecialchars($log['record_id']) ?></td>
-              <td><?= htmlspecialchars($log['ip_address']) ?></td>
-            </tr>
-          <?php endforeach; else: ?>
-            <tr><td colspan="6" class="text-center text-muted">No activity logs found.</td></tr>
-          <?php endif; ?>
-          </tbody>
-        </table>
-        <p>&nbsp;</p>
-      </div>
-    </div>
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-lg-3">
+                    <div class="card h-100 border-start border-primary border-4" style="background: linear-gradient(135deg, #4f46e5, #818cf8); color: white;">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase small opacity-75">Voters</h6>
+                            <h3 class="mb-0"><?php echo number_format($totalVoters); ?></h3>
+                            <i class="fas fa-id-card card-icon d-none d-sm-block"></i>
+                        </div>
+                    </div>
+                </div>
 
-  </div>
+                <div class="col-6 col-lg-3">
+                    <div class="card h-100 border-start border-success border-4" style="background: linear-gradient(135deg, #059669, #34d399); color: white;">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase small opacity-75">Votes</h6>
+                            <h3 class="mb-0"><?php echo number_format($totalVotesCast); ?></h3>
+                            <i class="fas fa-check-double card-icon d-none d-sm-block"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-lg-3">
+                    <div class="card h-100 border-start border-warning border-4" style="background: linear-gradient(135deg, #d97706, #fbbf24); color: white;">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase small opacity-75">Candidates</h6>
+                            <h3 class="mb-0"><?php echo $totalCandidates; ?></h3>
+                            <i class="fas fa-user-tie card-icon d-none d-sm-block"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-6 col-lg-3">
+                    <div class="card h-100 border-start border-danger border-4" style="background: linear-gradient(135deg, #dc2626, #f87171); color: white;">
+                        <div class="card-body p-3">
+                            <h6 class="text-uppercase small opacity-75">Live</h6>
+                            <h3 class="mb-0"><?php echo $activeElections; ?></h3>
+                            <i class="fas fa-broadcast-tower card-icon d-none d-sm-block"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+                <div class="col-12 col-xl-8">
+                    <div class="card p-3 p-md-4">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-chart-line text-primary me-2"></i>Live Voting Trend</h6>
+                        <div style="position: relative; height:300px;">
+                            <canvas id="votingTrendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-xl-4">
+                    <div class="card p-3 p-md-4 h-100">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-chart-pie text-success me-2"></i>Turnout by Dept</h6>
+                        <div style="position: relative; height:250px;">
+                            <canvas id="departmentChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-12 col-lg-7">
+                    <div class="card border-0">
+                        <div class="card-header bg-white border-0 py-3">
+                            <h6 class="mb-0 fw-bold">Recent Activity</h6>
+                        </div>
+                        <div class="card-body table-responsive p-0">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr class="small text-uppercase">
+                                        <th class="ps-3">Voter</th>
+                                        <th>Election</th>
+                                        <th class="d-none d-md-table-cell">Time</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="small">
+                                    <?php foreach ($recentVotes as $vote): ?>
+                                    <tr>
+                                        <td class="ps-3"><strong><?= $vote['voter'] ?></strong></td>
+                                        <td><?= $vote['election'] ?></td>
+                                        <td class="text-muted d-none d-md-table-cell"><?= $vote['time'] ?></td>
+                                        <td><span class="badge bg-success-subtle text-success">Verified</span></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-5">
+                    <div class="card border-0">
+                        <div class="card-header bg-white border-0 py-3">
+                            <h6 class="mb-0 fw-bold">System Audit</h6>
+                        </div>
+                      <div class="card-body p-0">
+                            <ul class="list-group list-group-flush">
+                                <?php foreach ($activityLogs as $log): ?>
+                                <li class="list-group-item d-flex justify-content-between align-items-center small py-3">
+                                    <div>
+                                        <div class="fw-bold"><?= $log['action'] ?></div>
+                                        <div class="text-muted text-xs"><?= $log['username'] ?> • <?= $log['ip_address'] ?></div>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-muted opacity-25"></i>
+                                </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-header border-0 py-5">
+                       
+          </div>
+<footer class="main-footer text-center mt-5 py-3">
+  <p> 2026 Secured Vote. All rights reserved.</p>
+  </footer>
+        </div>
+    </div>
 </div>
 
-<footer>
-  <?php include('partials/footer.php'); ?>
-</footer>
-
-<!-- Chart.js Scripts -->
 <script>
-  const userGrowthLabels = <?= json_encode(array_column($userGrowth, 'month')) ?>;
-  const userGrowthData = <?= json_encode(array_column($userGrowth, 'total')) ?>;
 
-  const revenueLabels = <?= json_encode(array_column($revenueData, 'month')) ?>;
-  const revenueValues = <?= json_encode(array_column($revenueData, 'total_revenue')) ?>;
+    // Chart Configuration
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
+    };
 
-  const planLabels = <?= json_encode(array_column($planBreakdown, 'plan_name')) ?>;
-  const planCounts = <?= json_encode(array_column($planBreakdown, 'count')) ?>;
+    // Voting Trend Line Chart
+    new Chart(document.getElementById('votingTrendChart'), {
+        type: 'line',
+        data: {
+            labels: <?= json_encode(array_column($votingTrend, 'time')) ?>,
+            datasets: [{
+                label: 'Votes',
+                data: <?= json_encode(array_column($votingTrend, 'votes')) ?>,
+                borderColor: '#4f46e5',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: chartOptions
+    });
 
-  const questionLabels = <?= json_encode(array_column($questionsPerDay, 'date')) ?>;
-  const questionCounts = <?= json_encode(array_column($questionsPerDay, 'total')) ?>;
-
-  new Chart(document.getElementById('userGrowthChart'), {
-    type: 'line',
-    data: {
-      labels: userGrowthLabels,
-      datasets: [{
-        label: 'New Users',
-        data: userGrowthData,
-        borderColor: '#007bff',
-        backgroundColor: 'rgba(0,123,255,0.3)',
-        fill: true,
-        tension: 0.3
-      }]
-    },
-    options: { responsive: true, scales: { y: { beginAtZero: true } } }
-  });
-
-  new Chart(document.getElementById('revenueChart'), {
-    type: 'line',
-    data: {
-      labels: revenueLabels,
-      datasets: [{
-        label: 'Revenue (₦)',
-        data: revenueValues,
-        borderColor: '#28a745',
-        backgroundColor: 'rgba(40,167,69,0.3)',
-        fill: true,
-        tension: 0.3
-      }]
-    },
-    options: { responsive: true, scales: { y: { beginAtZero: true } } }
-  });
-
-  new Chart(document.getElementById('subscriptionChart'), {
-    type: 'doughnut',
-    data: {
-      labels: planLabels,
-      datasets: [{
-        data: planCounts,
-        backgroundColor: ['#007bff','#ffc107','#28a745','#dc3545','#6f42c1']
-      }]
-    },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-  });
-
-  new Chart(document.getElementById('questionsChart'), {
-    type: 'bar',
-    data: {
-      labels: questionLabels,
-      datasets: [{
-        label: 'Questions Generated',
-        data: questionCounts,
-        backgroundColor: 'rgba(220,53,69,0.6)',
-        borderColor: '#dc3545',
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: { y: { beginAtZero: true } }
-    }
-  });
+    // Department Doughnut Chart
+    new Chart(document.getElementById('departmentChart'), {
+        type: 'doughnut',
+        data: {
+            labels: <?= json_encode(array_column($departmentBreakdown, 'name')) ?>,
+            datasets: [{
+                data: <?= json_encode(array_column($departmentBreakdown, 'count')) ?>,
+                backgroundColor: ['#4f46e5', '#059669', '#d97706', '#dc2626', '#6366f1'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            ...chartOptions,
+            cutout: '70%'
+        }
+    });
 </script>
 
-<?php include('partials/toogle-down.php'); ?>
 </body>
 </html>

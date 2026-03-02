@@ -1,139 +1,31 @@
-  body {
-    font-family: 'Roboto', sans-serif;
-    background-color: #f0f2f5;
-  }
-  #sidebar {
-    min-width: 250px;
-    max-width: 250px;
-    background: #001f3f;
-    color: #fff;
-    transition: all 0.3s;
-    z-index: 1000;
-  }
-  #sidebar a {
-    color: #fff;
-    text-decoration: none;
-    font-weight: 500;
-  }
-  #sidebar a:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  #sidebar .active {
-    background: rgba(255, 255, 255, 0.2);
-  }
-  #content {
-    width: 100%;
-    padding: 20px;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    transition: margin-left 0.3s;
-  }
-  .navbar-custom {
-    background-color: #fff;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    padding: 0.5rem 1rem;
-    margin-bottom: 20px;
-    border-radius: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .menu-toggle {
-    display: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-  }
-  .style1 {color: #000033}
-  footer {
-    background: #001f3f;
-    color: #fff;
-    padding: 15px 20px;
-    position: fixed;
-    width: calc(100% - 250px);
-    bottom: 0;
-    left: 250px;
-    text-align: center;
-    font-size: 0.9rem;
-  }
-  @media(max-width:768px){
-    #sidebar{
-      position: fixed;
-      left: -250px;
-      top: 0;
-      height: 100%;
-    }
-    #sidebar.active{
-      left: 0;
-    }
-    #content{
-      margin-left: 0;
-      padding-bottom: 80px; /* for footer space */
-    }
-    footer{
-      width: 100%;
-      left: 0;
-    }
-    .menu-toggle{
-      display: block;
-    }
-  }
-  
-  .card {
-    border-radius: 15px;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-    color: #fff;
-    overflow: hidden;
-    position: relative;
-  }
-  .card-icon {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    font-size: 3rem;
-    opacity: 0.2;
-  }
-  .card h5 {
-    font-size: 1rem;
-    font-weight: 500;
-  }
-  .card h3 {
-    font-size: 1.6rem;
-    font-weight: 700;
-  }
-  
-  .settings-form {
-    background: #fff;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
-    margin-bottom: 30px;
-  }
-  .settings-form .form-label {
-    font-weight: 500;
-    color: #001f3f;
-  }
-  .settings-form input.form-control,
-  .settings-form textarea.form-control {
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    padding: 10px 12px;
-    margin-bottom: 15px;
-  }
-  .settings-form input.form-control:focus,
-  .settings-form textarea.form-control:focus {
-    border-color: #001f3f;
-    box-shadow: 0 0 6px rgba(0,31,63,0.15);
-    outline: none;
-  }
-  .settings-form button.btn-primary {
-    background: #001f3f;
-    border-radius: 8px;
-    padding: 10px 20px;
-    font-weight: 600;
-  }
-  #logoPreview {
-    margin-top: 10px;
-    max-width: 120px;
-    border-radius: 8px;
-  }
+        body, html { height: 100%; background-color: #f4f7f6; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+        
+        #sidebar { 
+            min-width: 250px; max-width: 250px;
+            background: #1e293b; color: white; min-height: 100vh;
+            transition: all 0.3s; z-index: 1050;
+        }
+
+        @media (max-width: 991.98px) {
+            #sidebar { margin-left: -250px; position: fixed; }
+            #sidebar.active { margin-left: 0; }
+        }
+
+        .navbar-custom { background: white; padding: 10px 20px; border-bottom: 1px solid #e2e8f0; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .card-icon { float: right; font-size: 2rem; opacity: 0.3; color: #fff; }
+        
+        #sidebar-overlay {
+            display: none; position: fixed;
+            width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.5); z-index: 1040;
+        }
+        #sidebar-overlay.active { display: block; }
+
+        .text-xs { font-size: 0.75rem; }
+        
+        /* Footer Specific Styling */
+        .main-footer {
+            background: transparent !important;
+            color: #6c757d;
+        }
