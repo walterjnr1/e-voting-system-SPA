@@ -1,0 +1,13 @@
+/* assets/css/email_template.css */
+.email-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }
+.email-container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid #e1e8e7; }
+.email-header { background-color: #0b0932; color: #ffffff; padding: 30px; text-align: center; }
+.email-header h2 { margin: 0; font-size: 24px; color: #ffffff; }
+.email-content { padding: 30px; color: #444444; line-height: 1.6; }
+.info-box { background-color: #f8fafc; border-left: 4px solid #0b0932; padding: 20px; margin: 20px 0; border-radius: 4px; }
+.alert-box { background-color: #fff5f5; border: 1px dashed #feb2b2; color: #c53030; padding: 15px; margin-top: 20px; border-radius: 4px; font-size: 14px; }
+.email-footer { background-color: #f9fafb; padding: 30px; text-align: center; color: #6b7280; font-size: 13px; border-top: 1px solid #edf2f7; }
+.social-icons { margin-bottom: 15px; }
+.social-icons a { margin: 0 8px; text-decoration: none; }
+.social-icons img { vertical-align: middle; opacity: 0.8; transition: opacity 0.3s; }
+.social-icons img:hover { opacity: 1; }
