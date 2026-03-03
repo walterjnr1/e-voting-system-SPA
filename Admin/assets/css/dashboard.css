@@ -29,3 +29,32 @@
             background: transparent !important;
             color: #6c757d;
         }
+
+
+
+/* Form Styling */
+.form-label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #475569;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.1);
+}
+
+.btn-primary {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+}
+
+.btn-primary:hover {
+    background-color: #4338ca;
+}
+
+/* Card Header custom padding */
+.card-header-main {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0 !important;
+}

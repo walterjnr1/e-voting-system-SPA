@@ -11,8 +11,9 @@ if (empty($_SESSION['user_id'])) {
 }
 
 // ✅ Log activity as logout
-$action = "User logged out on $current_date";
-log_activity($dbh, $user_id, $action, 'users', $user_id, $ip_address);
+        if (function_exists('log_activity')) {
+            log_activity($dbh, $user_id,'User logged out on $current_date',  $ip_address);
+        }
 
 // ✅ Destroy session and redirect
 session_unset();

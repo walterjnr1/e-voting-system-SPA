@@ -1,208 +1,208 @@
 <?php 
 include('../inc/app_data.php');
 include '../database/connection.php';
-include 'hasFeature.php'; // Assuming sendEmail and log_activity are here
 
+// Ensure user is logged in
 if (empty($_SESSION['user_id'])) {
-    $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
     header("Location: ../login");
     exit;
 }
 
 $user_id = $_SESSION['user_id'];
+$ip_address = $_SERVER['REMOTE_ADDR'];
 
-// Fetch current user info
-$stmt = $dbh->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
-$stmt->execute([$user_id]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+// --- PHP PROCESSING LOGIC ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+    $old_password = $_POST['old_password'];
+    $new_password = $_POST['new_password'];
+    $confirm_password = $_POST['confirm_password'];
 
-if(!$user){
-    $_SESSION['toast'] = ['type'=>'error','message'=>'User not found!'];
-    header("Location: login");
-    exit;
-}
+    // 1. Validation: Check if new passwords match
+    if ($new_password !== $confirm_password) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'New passwords do not match!'];
+    } else {
+        // 2. Fetch current hashed password from DB
+        $stmt = $dbh->prepare("SELECT password, full_name, email FROM users WHERE id = ?");
+        $stmt->execute([$user_id]);
+        $user = $stmt->fetch();
 
-if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_password'])){
-    $current_password = $_POST['current_password'] ?? '';
-    $new_password = $_POST['new_password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
-
-    if(!password_verify($current_password, $user['password'])){
-        $_SESSION['toast'] = ['type'=>'error','message'=>'Current password is incorrect.'];
-    }
-    elseif(strlen($new_password) < 8){
-        $_SESSION['toast'] = ['type'=>'error','message'=>'New password must be at least 8 characters.'];
-    }
-    elseif($new_password !== $confirm_password){
-        $_SESSION['toast'] = ['type'=>'error','message'=>'Confirm password does not match.'];
-    }
-    else{
-        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-
-        // Updated with updated_at field
-        $update = $dbh->prepare("UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?");
-        $result = $update->execute([$hashed_password, $user_id]);
-
-        if($result){
-            // ✅ Social Media Icons for Email
-            $facebook_icon  = "https://cdn-icons-png.flaticon.com/512/733/733547.png";
-            $twitter_icon   = "https://cdn-icons-png.flaticon.com/512/5969/5969020.png";
-            $instagram_icon = "https://cdn-icons-png.flaticon.com/512/174/174855.png";
-            $whatsapp_icon  = "https://cdn-icons-png.flaticon.com/512/733/733585.png";
-
-            // ✅ Load External CSS for Email
-            $css = file_exists('assets/css/email_template.css') ? file_get_contents('assets/css/email_template.css') : '';
+        // 3. Verify Old Password
+        if ($user && password_verify($old_password, $user['password'])) {
             
-            $subject = "Security Alert: Password Updated Successfully";
-            $message = "
-            <html>
-            <head><style>{$css}</style></head>
-            <body class='email-body'>
-                <div class='email-container'>
-                    <div class='email-header'><h2>Password Security Update</h2></div>
-                    <div class='email-content'>
-                        <p>Hello <strong>".htmlspecialchars($user['name'])."</strong>,</p>
-                        <p>Your account password for <strong>".htmlspecialchars($app_name)."</strong> was recently changed successfully.</p>
-                        
-                        <div class='info-box'>
-                            <strong>Change Details:</strong><br>
-                            Date: ".date('Y-m-d H:i:s')." UTC<br>
-                            New Password: <strong>".htmlspecialchars($new_password)."</strong><br>
-                            IP Address: ".htmlspecialchars($_SERVER['REMOTE_ADDR'])."
-                        </div>
+            // 4. Hash New Password & Update
+            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+            $update = $dbh->prepare("UPDATE users SET password = ? WHERE id = ?");
+            $result = $update->execute([$hashed_password, $user_id]);
 
-                        <div class='alert-box'>
-                            <strong>Important:</strong> If you did not authorize this change, please contact us immediately via WhatsApp at ".htmlspecialchars($whatsapp_phone)." or email ".htmlspecialchars($app_email).".
+            if ($result) {
+                // --- EMAIL NOTIFICATION ---
+                $facebook_icon  = "https://cdn-icons-png.flaticon.com/512/733/733547.png";
+                $twitter_icon   = "https://cdn-icons-png.flaticon.com/512/5969/5969020.png";
+                $whatsapp_icon  = "https://cdn-icons-png.flaticon.com/512/733/733585.png";
+                
+                $css = file_exists('assets/css/email_template.css') ? file_get_contents('assets/css/email_template.css') : '';
+                
+                $subject = "Security Alert: Password Changed - $app_name";
+                $message = "
+                <html>
+                <head><style>{$css}</style></head>
+                <body class='email-body'>
+                    <div class='email-container'>
+                        <div class='email-header'><h2>Security Notification</h2></div>
+                        <div class='email-content'>
+                            <p>Hello <strong>".htmlspecialchars($user['full_name'])."</strong>,</p>
+                            <p>This is a confirmation that the password for your <strong>$app_name</strong> account was recently changed.</p>
+                            
+                            <div class='info-box' style='border-left: 4px solid #0a192f; background: #f8f9fa; padding: 15px;'>
+                                <strong>Change Details:</strong><br>
+                                Status: Successfully Updated<br>
+                                Time: ".date('F j, Y, g:i a')."<br>
+                                IP Address: ".$ip_address."
+                            </div>
+
+                            <p>If you performed this action, you can safely ignore this email. No further action is required.</p>
+                            
+                            <div class='alert-box' style='background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px;'>
+                                <strong>Important:</strong> If you did NOT change your password, please contact our support team immediately or reset your password to secure your account.
+                            </div>
+                        </div>
+                        <div class='email-footer'>
+                            <div class='social-icons'>
+                                <a href='#'><img src='".$facebook_icon."' width='24'></a>
+                                <a href='#'><img src='".$twitter_icon."' width='24'></a>
+                                <a href='#'><img src='".$whatsapp_icon."' width='24'></a>
+                            </div>
+                            <p>&copy; ".date('Y')." ".htmlspecialchars($app_name).". All rights reserved.</p>
                         </div>
                     </div>
-                    <div class='email-footer'>
-                        <div class='social-icons'>
-                            <a href='https://facebook.com/".htmlspecialchars($facebook_id ?? '')."'><img src='".$facebook_icon."' width='24'></a>
-                            <a href='https://twitter.com/".htmlspecialchars($twitter_id ?? '')."'><img src='".$twitter_icon."' width='24'></a>
-                            <a href='https://instagram.com/".htmlspecialchars($instagram_id ?? '')."'><img src='".$instagram_icon."' width='24'></a>
-                            <a href='https://wa.me/".preg_replace('/[^0-9]/', '', $whatsapp_phone ?? '')."'><img src='".$whatsapp_icon."' width='24'></a>
-                        </div>
-                        <p>
-                            &copy; ".date('Y')." ".htmlspecialchars($app_name).". All rights reserved.<br>
-                            ".htmlspecialchars($app_email)."
-                        </p>
-                    </div>
-                </div>
-            </body>
-            </html>";
+                </body>
+                </html>";
+                
+                if(function_exists('sendEmail')) {
+                    sendEmail($user['email'], $subject, $message);
+                }
+                
+                log_activity($dbh, $user_id, "Password Changed", $ip_address);
 
-            sendEmail($user['email'], $subject, $message);
-            log_activity($dbh, $user_id, "changed password", 'users', $user_id, $_SERVER['REMOTE_ADDR']);
-
-            $_SESSION['toast'] = ['type'=>'success','message'=>'Password updated successfully!'];
-            header("Location: change-password"); // Or change-password.php
-            exit;
+                $_SESSION['toast'] = ['type' => 'success', 'message' => 'Password updated successfully!'];
+                header("Location: change-password");
+                exit;
+            }
         } else {
-            $_SESSION['toast'] = ['type'=>'error','message'=>'Failed to update password.'];
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Current password is incorrect!'];
         }
     }
-    header("Location: change-password");
-    exit;
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Change Password | <?= htmlspecialchars($app_name); ?></title>
-    <?php include('partials/head.php'); ?>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-    <style>
-        .hidden { display: none; }
-        .password-container { position: relative; }
-        .password-toggle { position: absolute; top: 50%; right: 15px; transform: translateY(-50%); cursor: pointer; color: #6c757d; }
-    .style1 {color: #000000}
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Password | <?php echo $app_name; ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/dashboard.css" />
+    <link rel="icon" href="../<?php echo $app_logo; ?>" type="image/x-icon">
 </head>
 <body>
-<div class="d-flex">
-    <nav id="sidebar"><?php include('partials/sidebar.php'); ?></nav>
 
-    <div id="content" class="d-flex flex-column">
-        <div class="navbar-custom d-flex justify-content-between align-items-center p-3">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-bars menu-toggle me-3 d-md-none" id="menuToggle"></i>
-                <h5 class="mb-0">Change Password</h5>
-            </div>
-            <div><a href="logout" class="btn btn-outline-danger"><i class="fas fa-sign-out-alt me-1"></i> Logout</a></div>
+<div id="sidebar-overlay"></div>
+
+<div class="d-flex">
+    <nav id="sidebar" class="d-flex flex-column p-3 shadow">
+        <?php include('partials/sidebar.php'); ?>
+    </nav>
+
+    <div id="content" class="flex-grow-1">
+        <div class="navbar-custom d-flex justify-content-between align-items-center sticky-top">
+            <?php include('partials/navbar.php');?>
         </div>
 
-        <div class="container py-5">
-            <div class="row justify-content-center">
-                <div class="col-md-6">
-                    <div class="card shadow-sm p-4 border-0">
-                        <form method="POST" id="passwordForm">
-                                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+        <div class="p-3 p-md-4">
+            <div class="mb-4 d-flex justify-content-between align-items-center">
+                <h4 class="fw-bold mb-0">Security Settings</h4>
+                <a href="dashboard" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i> Back</a>
+            </div>
 
-                            <div class="mb-3">
-                                <label class="form-label style1">Current Password</label>
-                                <div class="password-container">
-                                    <input type="password" class="form-control" name="current_password" id="curr" required>
-                                    <i class="fa-solid fa-eye password-toggle" data-target="curr"></i>
+            <div class="row justify-content-center">
+                <div class="col-12 col-xl-8">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3">
+                            <h6 class="mb-0 fw-bold text-primary"><i class="fas fa-lock me-2"></i>Update Password</h6>
+                        </div>
+                        <div class="card-body p-4">
+                            <form action="" method="POST" id="passwordForm" class="needs-validation" novalidate>
+                                <div class="row g-4">
+                                    <div class="col-md-12">
+                                        <label class="form-label">Current Password</label>
+                                        <input type="password" name="old_password" class="form-control" placeholder="Enter current password" required>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label">New Password</label>
+                                        <input type="password" name="new_password" id="new_password" class="form-control" placeholder="Minimum 8 characters" minlength="8" required>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Confirm New Password</label>
+                                        <input type="password" name="confirm_password" id="confirm_password" class="form-control" placeholder="Repeat new password" required>
+                                    </div>
+
+                                    <div class="col-12 text-end">
+                                        <hr class="my-4">
+                                        <button type="submit" name="change_password" id="submitBtn" class="btn btn-primary px-5" style="background-color: #0a192f; border: none;">
+                                            <span id="btnText"><i class="fas fa-save me-2"></i>Update Password</span>
+                                            <div id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status"></div>
+                                        </button>
+                                    </div>
                                 </div>
-                          </div>
-                            <div class="mb-3">
-                                <label class="form-label style1">New Password</label>
-                                <div class="password-container">
-                                    <input type="password" class="form-control" name="new_password" id="newp" required>
-                                    <i class="fa-solid fa-eye password-toggle" data-target="newp"></i>
-                                </div>
-                          </div>
-                            <div class="mb-3">
-                                <label class="form-label style1">Confirm Password</label>
-                                <div class="password-container">
-                                    <input type="password" class="form-control" name="confirm_password" id="conf" required>
-                                    <i class="fa-solid fa-eye password-toggle" data-target="conf"></i>
-                                </div>
-                          </div>
-                            <button type="submit" name="update_password" class="btn btn-primary w-100" id="submitBtn">
-                                <span id="btnText">Update Password</span>
-                                <span id="btnSpinner" class="hidden"><i class="fas fa-spinner fa-spin me-2"></i>Processing...</span>
-                            </button>
-                        </form>
-                    </div>
-                    
-                    <div class="mt-3 text-center text-muted small">
-                        <strong>Last Updated:</strong> 
-                        <?= $user['updated_at'] ? date('M d, Y - h:i A', strtotime($user['updated_at'])) : 'Never'; ?>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
+            <footer class="main-footer text-center mt-5 py-3">
+        <?php include('partials/footer.php'); ?>
+        </footer>
         </div>
-
-        <footer class="mt-auto"><?php include('partials/footer.php'); ?></footer>
     </div>
+     
 </div>
 
+
 <?php include('partials/sweetalert.php'); ?>
-<?php include('partials/toogle-down.php'); ?>
 
 <script>
-// --- Spinner Logic ---
-document.getElementById("passwordForm").addEventListener("submit", function(e) {
-    const btn = document.getElementById("submitBtn");
-    const text = document.getElementById("btnText");
-    const spinner = document.getElementById("btnSpinner");
+    document.getElementById('passwordForm').addEventListener('submit', function (event) {
+        const form = event.target;
+        const newPass = document.getElementById('new_password').value;
+        const confirmPass = document.getElementById('confirm_password').value;
+        
+        // Custom Check: Passwords Match
+        if (newPass !== confirmPass) {
+            alert("New passwords do not match!");
+            event.preventDefault();
+            return;
+        }
 
-    text.classList.add("hidden");
-    spinner.classList.remove("hidden");
-    btn.style.pointerEvents = "none"; // Prevent double clicking without breaking POST
-});
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+            form.classList.add('was-validated');
+            return;
+        }
 
-// --- Password Toggle Logic ---
-document.querySelectorAll('.password-toggle').forEach(el => {
-    el.addEventListener('click', function() {
-        const target = document.getElementById(this.getAttribute('data-target'));
-        const isPass = target.type === 'password';
-        target.type = isPass ? 'text' : 'password';
-        this.classList.toggle('fa-eye');
-        this.classList.toggle('fa-eye-slash');
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('btnText');
+        const spinner = document.getElementById('btnSpinner');
+
+        btn.style.pointerEvents = 'none'; 
+        btn.style.opacity = '0.8';
+        text.classList.add('d-none');
+        spinner.classList.remove('d-none');
     });
-});
 </script>
+
 </body>
 </html>

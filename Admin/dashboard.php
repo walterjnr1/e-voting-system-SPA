@@ -1,6 +1,14 @@
 <?php 
-// include('../inc/app_data.php'); 
+include('../inc/app_data.php');
+include '../database/connection.php'; 
 
+if (empty($_SESSION['user_id'])) {
+ 
+    $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
+  
+    header("Location: ../login");
+    exit;
+}
 // --- START MOCK DATA SECTION ---
 $app_name = "Secured Vote";
 $totalVoters = 12450;
@@ -52,7 +60,8 @@ $activityLogs = [
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-      <link rel="stylesheet" href="assets/css/main.css" />
+    <link rel="stylesheet" href="assets/css/dashboard.css" />
+    <link rel="icon" href="../<?php echo $app_logo; ?>" type="image/x-icon">
 
 </head>
 <body>
@@ -66,23 +75,7 @@ $activityLogs = [
 
     <div id="content" class="flex-grow-1">
         <div class="navbar-custom d-flex justify-content-between align-items-center sticky-top">
-            <div class="d-flex align-items-center">
-                <button id="sidebarCollapse" class="btn btn-outline-secondary me-3 d-lg-none">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <h6 class="mb-0 d-none d-sm-block text-muted">Control Panel / <strong>Analytics</strong></h6>
-            </div>
-            
-            <div class="dropdown">
-                <button class="btn btn-link text-dark text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="fas fa-user-circle"></i> <span class="d-none d-md-inline">Admin</span>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                    <li><a class="dropdown-item" href="profile"><i class="fas fa-user-edit me-2"></i> Profile</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-danger" href="logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
-                </ul>
-            </div>
+        <?php include('partials/navbar.php');?>
         </div>
 
         <div class="p-3 p-md-4">
@@ -207,12 +200,12 @@ $activityLogs = [
             <div class="card-header border-0 py-5">
                        
           </div>
-<footer class="main-footer text-center mt-5 py-3">
-  <p> 2026 Secured Vote. All rights reserved.</p>
-  </footer>
+        <footer class="main-footer text-center mt-5 py-3">
+        <?php include('partials/footer.php'); ?>
+        </footer>
         </div>
     </div>
-</div>
+    </div>
 
 <script>
 

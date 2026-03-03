@@ -1,139 +1,141 @@
-<?php
+<?php 
 include('../inc/app_data.php');
 include '../database/connection.php'; 
 
 if (empty($_SESSION['user_id'])) {
- 
     $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
-    
     header("Location: ../login");
     exit;
 }
 
-// Pagination settings
-$limit = 10; // records per page
+// --- PAGINATION LOGIC ---
+$limit = 15; 
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-if ($page < 1) $page = 1;
-$offset = ($page - 1) * $limit;
+$start = ($page - 1) * $limit;
 
-// Count total records (use logins count)
-$stmt = $dbh->query("SELECT COUNT(*) FROM logins");
-$total_records = $stmt->fetchColumn();
-$total_pages = ceil($total_records / $limit);
+// Fetch total records from logins table
+$total_stmt = $dbh->query("SELECT COUNT(*) FROM logins");
+$total_results = $total_stmt->fetchColumn();
+$total_pages = ceil($total_results / $limit);
 
-// Fetch login records with user and session details
-$sql = "SELECT l.id, l.user_id, l.device_id AS login_device_id,l.device_id AS login_device_name, l.device_type AS login_device_type, l.created_at AS login_date,
-               u.name,
-               s.device_id, s.device_type, s.ip_address, s.user_agent, s.login_token, s.last_active, s.created_at AS session_date
-        FROM logins l
-        LEFT JOIN users u ON l.user_id = u.id
-        LEFT JOIN user_sessions s ON l.user_id = s.user_id AND l.device_id = s.device_id
-        ORDER BY l.id DESC
-        LIMIT :limit OFFSET :offset";
-
-$stmt = $dbh->prepare($sql);
-$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+// Fetch Paginated Data with User details
+$stmt = $dbh->prepare("SELECT l.*, u.full_name, u.email 
+                       FROM logins l 
+                       LEFT JOIN users u ON l.user_id = u.id 
+                       ORDER BY l.id DESC LIMIT $start, $limit");
 $stmt->execute();
-$login = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$allLogins = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Login records | <?php echo htmlspecialchars($app_name); ?></title>
-    <?php include('partials/head.php'); ?>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Records | <?php echo $app_name; ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/dashboard.css" />
+    <link rel="icon" href="../<?php echo $app_logo; ?>" type="image/x-icon">
 </head>
 <body>
 
+<div id="sidebar-overlay"></div>
 <div class="d-flex">
-  <!-- Sidebar -->
-  <nav id="sidebar" class="d-flex flex-column p-3">
-    <?php include('partials/sidebar.php'); ?>
-  </nav>
+    <nav id="sidebar" class="d-flex flex-column p-3 shadow">
+        <?php include('partials/sidebar.php'); ?>
+    </nav>
 
-  <!-- Page Content -->
-  <div id="content" class="flex-grow-1">
-    <!-- Navbar -->
-    <div class="navbar-custom d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center">
-            <i class="fas fa-bars menu-toggle me-3 d-md-none" id="menuToggle"></i>
-            <h5>Login Records</h5>
+    <div id="content" class="flex-grow-1">
+        <div class="navbar-custom d-flex justify-content-between align-items-center sticky-top">
+            <?php include('partials/navbar.php');?>
         </div>
-        <div>
-            <a href="logout" class="btn btn-outline-danger">
-                <i class="fas fa-sign-out-alt me-1"></i> Logout
-            </a>
+
+        <div class="p-3 p-md-4">
+            <div class="mb-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="fw-bold">Login Records</h4>
+                    <p class="text-muted small">Monitor account access activities and security</p>
+                </div>
+                <button onclick="window.location.reload()" class="btn btn-outline-secondary btn-sm shadow-sm">
+                    <i class="fas fa-sync-alt me-1"></i> Refresh
+                </button>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 fw-bold">Login History</h6>
+                            <div class="input-group input-group-sm" style="width: 250px;">
+                                <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                                <input type="text" class="form-control border-start-0" id="dynamicSearch" placeholder="Search logs...">
+                            </div>
+                        </div>
+                        <div class="card-body table-responsive p-0">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr class="small text-uppercase">
+                                        <th class="ps-3">User</th>
+                                        <th>IP Address</th>
+                                        <th>Device / Browser</th>
+                                        <th>Login Time</th>
+                                        <th class="text-end pe-3">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="small" id="tableBody">
+                                    <?php if(empty($allLogins)): ?>
+                                        <tr><td colspan="5" class="text-center py-4 text-muted">No login records found.</td></tr>
+                                    <?php endif; ?>
+                                    
+                                    <?php foreach ($allLogins as $log): ?>
+                                    <tr>
+                                        <td class="ps-3">
+                                            <div class="fw-bold"><?= htmlspecialchars($log['full_name'] ?? 'Unknown User') ?></div>
+                                            <div class="text-muted text-xs"><?= htmlspecialchars($log['email'] ?? 'N/A') ?></div>
+                                        </td>
+                                        <td>
+                                            <code class="text-primary fw-bold"><?= htmlspecialchars($log['ip_address']) ?></code>
+                                        </td>
+                                        <td style="max-width: 300px;">
+                                            <span class="text-muted text-xs" title="<?= htmlspecialchars($log['device_name']) ?>">
+                                                <?= substr(htmlspecialchars($log['device_name']), 0, 60) ?>...
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold"><?= date('M d, Y', strtotime($log['created_at'])) ?></div>
+                                            <div class="text-muted text-xs"><?= date('h:i A', strtotime($log['created_at'])) ?></div>
+                                        </td>
+                                        <td class="text-end pe-3">
+                                            <button onclick="confirmDelete(<?= $log['id'] ?>)" class="btn btn-sm btn-light text-danger" title="Delete Log">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="card-footer bg-white border-0 py-3">
+                            <nav>
+                        <?php include('partials/pagination.php'); ?>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="main-footer text-center mt-5 py-3">
+                <?php include('partials/footer.php'); ?>
+            </footer>
         </div>
     </div>
-
-    <!-- Search Bar -->
-    <div class="d-flex justify-content-end mb-3">
-        <input type="text" id="searchInput" class="form-control w-auto" placeholder="Search Login...">
-    </div>
-
-    <!-- Login Records Table -->
-    <div class="card mb-4">
-      <div class="card-header">
-        <h5 class="style1">Login Records</h5>
-      </div>
-      <div class="card-body table-responsive">
-        <table class="table table-striped" id="transactionTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>User</th>
-              <th>Device Type</th>
-              <th>Device ID</th>
-                            <th>Device Name</th>
-
-              <th>IP Address</th>
-              <th>User Agent</th>
-              <th>Last Active</th>
-              <th>Login Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php 
-            if ($login) {
-              $cnt = $offset + 1;
-              foreach ($login as $logins) { ?>
-                <tr>
-                  <td><?php echo $cnt++; ?></td>
-                  <td><?php echo htmlspecialchars($logins['name'] ?? 'Unknown'); ?></td>
-                  <td><?php echo htmlspecialchars($logins['device_type'] ?? $logins['login_device_type']); ?></td>
-                  <td><?php echo htmlspecialchars($logins['device_id'] ?? $logins['login_device_id']); ?></td>
-                  <td><?php echo htmlspecialchars($logins['device_name']); ?></td>
-                  <td><?php echo htmlspecialchars($logins['ip_address'] ?? 'N/A'); ?></td>
-                  <td><?php echo htmlspecialchars(substr($logins['user_agent'] ?? 'N/A', 0, 40)); ?>...</td>
-                  <td><?php echo $logins['last_active'] ? date('d-m-Y h:i A', strtotime($logins['last_active'])) : 'N/A'; ?></td>
-                  <td><?php echo date('d-m-Y h:i A', strtotime($logins['login_date'])); ?></td>
-                </tr>
-              <?php }
-            } else { ?>
-              <tr><td colspan="8" class="text-center">No Login Found</td></tr>
-            <?php } ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <p>
-      <!-- Pagination -->
-      <nav aria-label="Page navigation">
-        <?php include('partials/pagination.php'); ?>
-      </nav>
-    </p>
-    <p>&nbsp;  </p>
-  </div>
 </div>
-
-<!-- Footer -->
-<footer>
-  <?php include('partials/footer.php'); ?>
-</footer>
 
 <?php include('partials/sweetalert.php'); ?>
 <?php include('partials/table-script.php'); ?>
-<?php include('partials/toogle-down.php'); ?>
+
+
+
 </body>
 </html>

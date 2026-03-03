@@ -7,7 +7,7 @@
                 <h1 class="text-lg md:text-xl font-bold tracking-tight">
                     <?php echo htmlspecialchars($app_name); ?>
                 </h1>
-                <span class="text-[10px] uppercase tracking-widest text-blue-400 font-semibold block md:inline">Secured E-Voting</span>
+                <span class="text-[10px] uppercase tracking-widest text-blue-400 font-semibold block md:inline">Secured E-Voting Platform</span>
             </div>
         </a>
 
