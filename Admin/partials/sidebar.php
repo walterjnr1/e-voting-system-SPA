@@ -74,11 +74,34 @@
         </div>
     </li>
 
-    <li class="nav-item mb-1">
-        <a href="voters" class="nav-link text-white">
-            <i class="fas fa-users-cog me-2"></i> Manage Voters
+
+<li class="nav-item mb-1">
+        <a href="#voterSubmenu" 
+           data-bs-toggle="collapse" 
+           role="button" 
+           aria-expanded="false" 
+           aria-controls="voterSubmenu" 
+           class="nav-link text-white d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-users-cog me-2"></i> Voters Management</span>
+            <i class="fas fa-chevron-down small opacity-50"></i>
         </a>
+        <div class="collapse" id="voterSubmenu" data-bs-parent="#sidebarMenu">
+            <ul class="nav flex-column ms-4 small border-start border-secondary border-opacity-25 mt-1">
+                <li class="nav-item">
+                    <a href="voter_register" class="nav-link text-white-50 hover:text-white py-1">
+                        <i class="fas fa-user-tie me-2"></i> Voter Register
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="voter_records" class="nav-link text-white-50 hover:text-white py-1">
+                        <i class="fas fa-user-tie me-2"></i> Voter Records
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
     </li>
+    
 
   <li class="nav-item mb-1">
     <a href="login-records" class="nav-link text-white d-flex align-items-center">
