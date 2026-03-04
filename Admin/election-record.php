@@ -104,7 +104,7 @@ $allElections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         </td>
                                         <td class="text-end pe-3">
                                             <div class="d-flex justify-content-end gap-2">
-                                                <a href="edit_election.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
+                                                <a href="edit_election?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                                 <button onclick="confirmDelete(<?= $row['id'] ?>)" class="btn btn-sm btn-outline-danger" title="Delete">

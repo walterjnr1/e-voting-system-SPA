@@ -59,10 +59,8 @@ if (isset($_SESSION['user_id'])) {
 } else {
     // If NOT logged in, check if we just got redirected by a timeout to set the alert
     if (isset($_GET['reason']) && $_GET['reason'] === 'timeout') {
-        $_SESSION['toast'] = [
-            'type' => 'warning',
-            'message' => 'Logged out due to 15 minutes of inactivity.'
-        ];
+      echo "<script>alert('Error: Logged out due to 15 minutes of inactivity!');</script>";
+
     }
 }
 

@@ -105,7 +105,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="candidate-record" class="nav-link text-white-50 hover:text-white py-1">
+                    <a href="candidate-records" class="nav-link text-white-50 hover:text-white py-1">
                         <i class="fas fa-user-tie me-2"></i> Candidate Records
                     </a>
                 </li>
@@ -119,7 +119,11 @@
             <i class="fas fa-chart-bar me-2"></i> Live Results
         </a>
     </li>
-
+<li class="nav-item mb-1">
+    <a href="audit_log" class="nav-link text-white">
+        <i class="fas fa-history me-2"></i> Audit Log
+    </a>
+</li>
    
 </ul>
 
