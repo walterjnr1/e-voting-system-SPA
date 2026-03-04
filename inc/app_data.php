@@ -22,6 +22,10 @@ $app_name      = $row_website['site_name'];
 $app_email     = $row_website['site_email'];
 $app_logo      = $row_website['logo'];
 
+// 3. election data 
+$stmt = $dbh->query("SELECT * FROM elections LIMIT 1");
+$row_election= $stmt->fetch();
+$title      = $row_election['title'];
 
 // 4. Inactivity & Alert Logic
 $timeout_duration = 900; // Corrected to 15 minutes (900s)

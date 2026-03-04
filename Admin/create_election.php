@@ -11,8 +11,14 @@ if (empty($_SESSION['user_id'])) {
 
 // --- PHP PROCESSING LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_election'])) {
-    $title = trim($_POST['title']);
-    $description = trim($_POST['description']);
+// --- SECURITY: CSRF VALIDATION ---
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Security token mismatch. Please refresh.'];
+        header("Location: create_election");
+        exit;
+    }   
+$title = trim($_POST['title']);
+    $description = htmlspecialchars(trim($_POST['description']));
     $start_datetime = $_POST['start_datetime'];
     $end_datetime = $_POST['end_datetime'];
     $status = $_POST['status'];
@@ -38,8 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_election'])) {
             log_activity($dbh, $user_id, "Election Created: $title", $ip_address);
 
             $_SESSION['toast'] = ['type' => 'success', 'message' => 'Election scheduled successfully!'];
-            // Added redirect to refresh the page or go to list to prevent form resubmission
-            header("Location: create_election"); 
+                        // Regenerate CSRF for next action
+                    unset($_SESSION['csrf_token']);
+                  header("Location: create_election"); 
             exit;
         } else {
             $_SESSION['toast'] = ['type' => 'error', 'message' => 'Database error. Failed to create election.'];
@@ -86,6 +93,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_election'])) {
                         </div>
                         <div class="card-body p-4">
                             <form action="" method="POST" id="electionForm" class="needs-validation" novalidate>
+                                                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+
                                 <div class="row g-4">
                                     <div class="col-md-12">
                                         <label class="form-label fw-semibold">Election Title</label>

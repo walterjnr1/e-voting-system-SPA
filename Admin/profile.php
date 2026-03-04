@@ -23,9 +23,15 @@ if (!$user) {
 
 // --- PHP PROCESSING LOGIC: UPDATE PROFILE ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
-    $full_name = trim($_POST['fullname']);
-    $email     = trim($_POST['email']);
-    $phone     = trim($_POST['phone']);
+    // --- SECURITY: CSRF VALIDATION ---
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Security token mismatch. Please refresh.'];
+        header("Location: profile");
+        exit;
+    }
+    $full_name = htmlspecialchars(trim($_POST['fullname']));
+    $email     = htmlspecialchars(trim($_POST['email']));
+    $phone     = htmlspecialchars(trim($_POST['phone']));
 
     // Check if email is being changed and if new email already exists elsewhere
     $checkEmail = $dbh->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
@@ -42,7 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             log_activity($dbh, $user_id, "Profile Update", $ip_address);
 
             $_SESSION['toast'] = ['type' => 'success', 'message' => 'Profile updated successfully!'];
-            header("Location: profile.php");
+             // Regenerate CSRF for next action
+                    unset($_SESSION['csrf_token']);
+            header("Location: profile");
             exit;
         } else {
             $_SESSION['toast'] = ['type' => 'error', 'message' => 'Database error during update.'];
@@ -133,7 +141,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                         </div>
                         <div class="card-body p-4">
                             <form action="" method="POST" id="profileForm" class="needs-validation" novalidate>
-                                <div class="row g-4">
+                                                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+    
+                            <div class="row g-4">
                                     <div class="col-md-12">
                                         <label class="form-label fw-semibold">Full Name</label>
                                         <input type="text" name="fullname" class="form-control" value="<?php echo htmlspecialchars($user['full_name']); ?>" required>

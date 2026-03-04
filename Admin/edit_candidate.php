@@ -20,10 +20,16 @@ if (!$candidate) {
 
 // Processing Update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_candidate'])) {
-    $election_id = $_POST['election_id'];
-    $position_id = $_POST['position_id'];
-    $manifesto = trim($_POST['manifesto']);
-    $status = $_POST['status'];
+    // --- SECURITY: CSRF VALIDATION ---
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Security token mismatch. Please refresh.'];
+        header("Location: edit_candidate");
+        exit;
+    }
+    $election_id = htmlspecialchars(trim($_POST['election_id']));
+    $position_id = htmlspecialchars(trim($_POST['position_id']));
+    $manifesto = htmlspecialchars(trim($_POST['manifesto']));
+    $status = htmlspecialchars(trim($_POST['status']));
     $photo_path = $candidate['photo']; // Default to old photo
 
     // Handle new photo upload if provided
@@ -42,7 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_candidate'])) 
     $update = $dbh->prepare("UPDATE candidates SET election_id=?, position_id=?, manifesto=?, photo=?, status=? WHERE id=?");
     if ($update->execute([$election_id, $position_id, $manifesto, $photo_path, $status, $candidate_id])) {
          $_SESSION['toast'] = ['type' => 'success', 'message' => 'Update successful!.'];
-header("Location: candidate-records");
+          // Regenerate CSRF for next action
+                    unset($_SESSION['csrf_token']);
+         header("Location: candidate-records");
         exit;
     }
 }
@@ -90,7 +98,9 @@ $positions = $dbh->query("SELECT id, title FROM positions")->fetchAll();
                 </div>
                 <div class="card-body">
                     <form action="" method="POST" id="editForm" enctype="multipart/form-data">
-                        <div class="row">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+  
+                    <div class="row">
                             <div class="col-md-4 text-center">
                                 <div class="preview-box mx-auto">
                                     <img id="imgPrev" src="../<?= htmlspecialchars($candidate['photo']) ?>">

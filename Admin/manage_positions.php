@@ -35,8 +35,14 @@ if (isset($_GET['delete'])) {
 
 // --- 3. PHP PROCESSING LOGIC (CREATE & UPDATE) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_position'])) {
+    // --- SECURITY: CSRF VALIDATION ---
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Security token mismatch. Please refresh.'];
+        header("Location: manage_positions");
+        exit;
+    }
     $election_id = $_POST['election_id'];
-    $title = trim($_POST['title']);
+    $title = htmlspecialchars(trim($_POST['title']));
     $max_vote = (int)$_POST['max_vote'];
     $pos_id = $_POST['pos_id'] ?? null;
 
@@ -54,6 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_position'])) {
 
     if ($result) {
         $_SESSION['toast'] = ['type' => 'success', 'message' => $msg];
+          // Regenerate CSRF for next action
+                    unset($_SESSION['csrf_token']);
         header("Location: manage_positions"); 
         exit;
     } else {
@@ -109,7 +117,9 @@ $positions = $dbh->query("SELECT p.*, e.title as election_title FROM positions p
                         </div>
                         <div class="card-body">
                             <form action="" method="POST" id="positionForm" class="needs-validation" novalidate>
-                                <input type="hidden" name="pos_id" value="<?= $edit_data['id'] ?? '' ?>">
+                                                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+    
+                            <input type="hidden" name="pos_id" value="<?= $edit_data['id'] ?? '' ?>">
                                 
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold small">Assign to Election</label>

@@ -12,11 +12,19 @@ if (empty($_SESSION['user_id'])) {
 
 // --- PHP PROCESSING LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_user'])) {
-    $full_name = trim($_POST['fullname']);
-    $email = trim($_POST['email']);
-    $phone = trim($_POST['phone']);
-    $role = $_POST['role']; 
-    $raw_password = $_POST['password'];
+    
+// --- SECURITY: CSRF VALIDATION ---
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Security token mismatch. Please refresh.'];
+        header("Location: add-user");
+        exit;
+    }
+
+    $full_name = htmlspecialchars(trim($_POST['fullname']));
+    $email = htmlspecialchars(trim($_POST['email']));
+    $phone = htmlspecialchars(trim($_POST['phone']));
+    $role = htmlspecialchars(trim($_POST['role'])); 
+    $raw_password = htmlspecialchars(trim($_POST['password']));
 
     // 1. Validation: Check if email already exists
     $checkEmail = $dbh->prepare("SELECT id FROM users WHERE email = ?");
@@ -81,7 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_user'])) {
             log_activity($dbh, $user_id, "User Registration $full_name ($role)", $ip_address);
 
             $_SESSION['toast'] = ['type' => 'success', 'message' => 'User account created successfully!'];
-            header("Location: add-user.php");
+            // Regenerate CSRF for next action
+                    unset($_SESSION['csrf_token']);
+            header("Location: add-user");
             exit;
         } else {
             $_SESSION['toast'] = ['type' => 'error', 'message' => 'Database error.'];
@@ -128,7 +138,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_user'])) {
                         </div>
                         <div class="card-body p-4">
                             <form action="" method="POST" id="registrationForm" class="needs-validation" novalidate>
-                                <div class="row g-4">
+                                                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+
+                            <div class="row g-4">
                                     <div class="col-md-6">
                                         <label class="form-label">Full Name</label>
                                         <input type="text" name="fullname" class="form-control" placeholder="John Doe" required>

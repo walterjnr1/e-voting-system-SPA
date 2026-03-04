@@ -147,7 +147,11 @@
         <i class="fas fa-history me-2"></i> Audit Log
     </a>
 </li>
-   
+   <li class="nav-item mb-1">
+    <a href="website_setting" class="nav-link text-white">
+        <i class="fas fa-cog me-2"></i> Website Setting
+    </a>
+</li>
 </ul>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

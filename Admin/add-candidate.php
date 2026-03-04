@@ -2,21 +2,26 @@
 include('../inc/app_data.php');
 include '../database/connection.php';
 
-// Ensure user is logged in
 if (empty($_SESSION['user_id'])) {
+    $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
     header("Location: ../login");
     exit;
 }
 
-$admin_id = $_SESSION['user_id'];
-$ip_address = $_SERVER['REMOTE_ADDR'];
-
 // --- PHP PROCESSING LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_candidate'])) {
-    $election_id = $_POST['election_id'];
-    $position_id = $_POST['position_id'];
-    $user_id_to_reg = $_POST['user_id'];
-    $manifesto = trim($_POST['manifesto']);
+
+// --- SECURITY: CSRF VALIDATION ---
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Security token mismatch. Please refresh.'];
+        header("Location: add-candidate");
+        exit;
+    }
+ 
+    $election_id = filter_var($_POST['election_id'], FILTER_VALIDATE_INT);
+    $position_id = filter_var($_POST['position_id'], FILTER_VALIDATE_INT);
+    $user_id_to_reg = filter_var($_POST['user_id'], FILTER_VALIDATE_INT);
+    $manifesto = htmlspecialchars(trim($_POST['manifesto'])); // XSS Protection
     $status = 'pending'; 
 
     // 1. Validation: Check duplicate registration
@@ -75,8 +80,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_candidate'])
                     sendEmail($candidate['email'], $subject, $message);
                 }
                 
-                log_activity($dbh, $admin_id, "Registered Candidate: ".$user_id_to_reg, $ip_address);
+                log_activity($dbh, $user_id, "Registered Candidate: ".$user_id_to_reg, $ip_address);
                 $_SESSION['toast'] = ['type' => 'success', 'message' => 'Candidate registered successfully!'];
+                // Regenerate CSRF for next action
+                    unset($_SESSION['csrf_token']);
                 header("Location: add-candidate");
                 exit;
             }
@@ -144,7 +151,9 @@ $users = $dbh->query("SELECT id, full_name FROM users WHERE role = 'candidate'")
                     <div class="card shadow-sm border-0">
                         <div class="card-body p-4">
                             <form action="" method="POST" id="regForm" enctype="multipart/form-data" class="needs-validation" novalidate>
-                                <div class="row g-4">
+                              <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                        
+                              <div class="row g-4">
                                     <div class="col-md-4">
                                         <label class="form-label d-block">Candidate Photo</label>
                                         <div class="preview-container">
@@ -188,7 +197,7 @@ $users = $dbh->query("SELECT id, full_name FROM users WHERE role = 'candidate'")
 
                                     <div class="col-12">
                                         <label class="form-label">Manifesto</label>
-                                        <textarea name="manifesto" class="form-control" rows="4" placeholder="Describe the candidate's goals..." required></textarea>
+                                        <textarea name="manifesto" class="form-control" rows="4" placeholder="Describe the candidate's goals..." ></textarea>
                                     </div>
 
                                     <div class="col-12 text-end">

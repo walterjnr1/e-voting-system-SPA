@@ -13,9 +13,15 @@ $ip_address = $_SERVER['REMOTE_ADDR'];
 
 // --- PHP PROCESSING LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
-    $old_password = $_POST['old_password'];
-    $new_password = $_POST['new_password'];
-    $confirm_password = $_POST['confirm_password'];
+// --- SECURITY: CSRF VALIDATION ---
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Security token mismatch. Please refresh.'];
+        header("Location: change-password");
+        exit;
+    }  
+$old_password = htmlspecialchars(trim($_POST['old_password']));
+    $new_password = htmlspecialchars(trim($_POST['new_password']));
+    $confirm_password = htmlspecialchars(trim($_POST['confirm_password']));
 
     // 1. Validation: Check if new passwords match
     if ($new_password !== $confirm_password) {
@@ -85,6 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
                 log_activity($dbh, $user_id, "Password Changed", $ip_address);
 
                 $_SESSION['toast'] = ['type' => 'success', 'message' => 'Password updated successfully!'];
+                 // Regenerate CSRF for next action
+                    unset($_SESSION['csrf_token']);
                 header("Location: change-password");
                 exit;
             }
@@ -133,7 +141,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
                         </div>
                         <div class="card-body p-4">
                             <form action="" method="POST" id="passwordForm" class="needs-validation" novalidate>
-                                <div class="row g-4">
+                                                         <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+
+                            <div class="row g-4">
                                     <div class="col-md-12">
                                         <label class="form-label">Current Password</label>
                                         <input type="password" name="old_password" class="form-control" placeholder="Enter current password" required>

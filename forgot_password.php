@@ -15,9 +15,11 @@ $message = "";
 $message_type = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['forgot_password_btn'])) {
-    // CSRF VALIDATION
+  // --- SECURITY: CSRF VALIDATION ---
     if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
-        die("Security violation: CSRF token mismatch.");
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Security token mismatch. Please refresh.'];
+        header("Location: forgot_password");
+        exit;
     }
 
     $email = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL);
@@ -104,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['forgot_password_btn']
                     // Log the reset action
                     $dbh->prepare("INSERT INTO audit_logs (user_id, action, ip_address) VALUES (?,?,?)")
                         ->execute([$user['id'], "Password reset requested", $ip_address]);
+                    unset($_SESSION['csrf_token']);
 
                 } catch (Exception $e) {
                     // Silently log or handle mail failure

@@ -16,8 +16,14 @@ $election = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$election) { header("Location: election-record"); exit; }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_election'])) {
-    $title = trim($_POST['title']);
-    $description = trim($_POST['description']);
+    // --- SECURITY: CSRF VALIDATION ---
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Security token mismatch. Please refresh.'];
+        header("Location: edit_election");
+        exit;
+    }
+    $title = htmlspecialchars(trim($_POST['title']));
+    $description = htmlspecialchars(trim($_POST['description']));
     $start = $_POST['start_datetime'];
     $end = $_POST['end_datetime'];
     $status = $_POST['status'];
@@ -26,6 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_election'])) {
     $update = $dbh->prepare("UPDATE elections SET title=?, description=?, start_datetime=?, end_datetime=?, status=?, allow_result_view=? WHERE id=?");
     if ($update->execute([$title, $description, $start, $end, $status, $allow_view, $id])) {
         $_SESSION['toast'] = ['type' => 'success', 'message' => 'Election updated successfully!'];
+          // Regenerate CSRF for next action
+                    unset($_SESSION['csrf_token']);
         header("Location: election-record");
         exit;
     }
@@ -68,7 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_election'])) {
                         </div>
                         <div class="card-body p-4">
                         <form method="POST">
-                            <div class="mb-3">
+                                                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+    
+                        <div class="mb-3">
                                 <label class="form-label">Title</label>
                                 <input type="text" name="title" class="form-control" value="<?= htmlspecialchars($election['title']) ?>" required>
                             </div>

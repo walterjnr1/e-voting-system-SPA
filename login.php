@@ -156,9 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
     <link rel="icon" href="<?php echo htmlspecialchars($app_logo); ?>" type="image/x-icon">
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col font-sans">
-<nav class="bg-blue-900 text-white p-4 shadow-lg">
-       <?php include('nav.php'); ?>
-    </nav>
+
 
     <main class="flex-grow flex items-center justify-center px-4 py-12">
         <div class="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
@@ -214,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                 </button>
 
                 <p class="text-center text-sm text-gray-600">
-                    Verification issues? <a href="register" class="text-blue-600 font-bold hover:underline">Register New Account</a>
+                    Not Yet a registered Voter ? <a href="voter_signup" class="text-blue-600 font-bold hover:underline">Register</a>
                 </p>
             </form>
         </div>
