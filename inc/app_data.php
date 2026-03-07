@@ -1,4 +1,4 @@
-<?php 
+<?php
 session_start([
   'cookie_httponly' => true,
   'cookie_secure'  => true, // HTTPS only
@@ -23,19 +23,26 @@ $app_email     = $row_website['site_email'];
 $app_logo      = $row_website['logo'];
 
 // 3. election data 
-$stmt = $dbh->query("SELECT * FROM elections LIMIT 1");
+$stmt = $dbh->query("SELECT id, title FROM elections ORDER BY created_at DESC LIMIT 1");
 $row_election= $stmt->fetch();
-$title      = $row_election['title'];
+$title            = $row_election['title'];
+$election_id      = $row_election['id'];
 
 // 4. Inactivity & Alert Logic
 $timeout_duration = 900; // Corrected to 15 minutes (900s)
 
 if (isset($_SESSION['user_id'])) {
-    $user_id = $_SESSION["user_id"];
+ $user_id = $_SESSION["user_id"];
+$session_token = $_SESSION['session_token'] ?? null;
 
     // Check for inactivity
     if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > $timeout_duration) {
         
+     // Update logout_time in voter_sessions table
+    if ($session_token) {
+        $updateSession = $dbh->prepare("UPDATE voter_sessions SET logout_time = NOW() WHERE session_token = ? AND user_id = ? AND logout_time IS NULL");
+        $updateSession->execute([$session_token, $user_id]);
+    }
         // Log activity before destroying
         if (function_exists('log_activity')) {
             log_activity($dbh, $user_id,'System auto-logout due to inactivity',  $ip_address);
@@ -45,8 +52,7 @@ if (isset($_SESSION['user_id'])) {
         session_destroy();
         
         // Redirect with reason
-        //header("Location: e_voting/login?reason=timeout");
-       header("Location: ../login?reason=timeout");
+       header("Location: login?reason=timeout");
 
         exit;
     }

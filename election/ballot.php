@@ -1,31 +1,110 @@
-<?php
-include '../database/connection.php'; 
-include('../inc/app_data.php'); 
+<?php 
+include '../database/connection.php';
+include('../inc/app_data.php');
+require '../email_vendor/autoload.php';
 
-/**
- * PRODUCTION LOGIC:
- * Fetch the active election and its end date.
- */
-// Mocking the end date for 2 days from now. 
-// In production, fetch this: $election['end_date'] = '2026-03-05 12:00:00';
-$election_end_time = date('Y-m-d H:i:s', strtotime('+2 days + 14 hours'));
-$election_title = "2026 Executive Council Elections";
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
-// Mock Data for Progress Bars and Candidates
-$total_voters = 1200;
-$votes_cast = 845;
-$participation_rate = round(($votes_cast / $total_voters) * 100);
+// --- CSRF TOKEN GENERATION ---
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
-$election_data = [
-    ['id' => 1, 'title' => 'President', 'candidates' => [
-        ['id' => 101, 'name' => 'John Doe', 'photo' => 'https://via.placeholder.com/150', 'bio' => 'Visionary leader with 10 years experience.', 'current_votes' => 450],
-        ['id' => 102, 'name' => 'Jane Smith', 'photo' => 'https://via.placeholder.com/150', 'bio' => 'Dedicated to transparency and growth.', 'current_votes' => 395]
-    ]],
-    ['id' => 2, 'title' => 'Secretary General', 'candidates' => [
-        ['id' => 201, 'name' => 'Alice Wong', 'photo' => 'https://via.placeholder.com/150', 'bio' => 'Expert in digital record keeping.', 'current_votes' => 500],
-        ['id' => 202, 'name' => 'Bob Brown', 'photo' => 'https://via.placeholder.com/150', 'bio' => 'Committed to better communication.', 'current_votes' => 345]
-    ]]
-];
+$error = "";
+$success = "";
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
+    // CSRF VALIDATION
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        die("Security violation: CSRF token mismatch.");
+    }
+
+    $full_name = trim($_POST['full_name'] ?? '');
+    $email = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL);
+    $phone = trim($_POST['phone'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
+    $role = 'voter'; // Explicitly set role
+
+    if ($full_name && $email && $phone && $password) {
+        if ($password !== $confirm_password) {
+            $error = "Passwords do not match.";
+        } else {
+            try {
+                // Check if User Already Exists
+                $check = $dbh->prepare("SELECT id FROM users WHERE email = ? OR phone = ? LIMIT 1");
+                $check->execute([$email, $phone]);
+                
+                if ($check->rowCount() > 0) {
+                    $error = "A user with this email or phone number already exists.";
+                } else {
+                    // Hash password
+                    $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+
+                    // Insert User
+                    $stmt = $dbh->prepare("INSERT INTO users (full_name, email, phone, password, role, is_verified, created_at) VALUES (?, ?, ?, ?, ?, 0, NOW())");
+                    $result = $stmt->execute([$full_name, $email, $phone, $hashed_password, $role]);
+
+                    if ($result) {
+                        $success = "Registration successful! Please check your email for confirmation.";
+
+                        // --- SEND NOTIFICATION EMAIL ---
+                        try {
+                            $facebook_icon  = "https://cdn-icons-png.flaticon.com/512/733/733547.png";
+                            $twitter_icon   = "https://cdn-icons-png.flaticon.com/512/5969/5969020.png";
+                            $instagram_icon = "https://cdn-icons-png.flaticon.com/512/174/174855.png";
+                            $whatsapp_icon  = "https://cdn-icons-png.flaticon.com/512/733/733585.png";
+
+                            $htmlMessage = '
+                            <div style="background-color: #f4f7f6; padding: 20px; font-family: sans-serif;">
+                                <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #ddd;">
+                                    <div style="background-color: #1e3a8a; color: #fff; padding: 20px; text-align: center;">
+                                        <h2>Registration Received</h2>
+                                    </div>
+                                    <div style="padding: 30px; line-height: 1.6; color: #333;">
+                                        <p>Dear <strong>' . htmlspecialchars($full_name) . '</strong>,</p>
+                                        <p>Thank you for registering as a voter on the <strong>' . htmlspecialchars($app_name) . '</strong> platform.</p>
+                                        <p>Your account is currently <strong>pending verification</strong> by the ELECO committee. You will be notified once you are cleared to vote.</p>
+                                    </div>
+                                    <div style="background: #f9f9f9; padding: 20px; text-align: center;">
+                                        <div style="margin-bottom: 15px;">
+                                            <a href="#"><img src="'.$facebook_icon.'" width="24" style="margin:0 5px;"></a>
+                                            <a href="#"><img src="'.$twitter_icon.'" width="24" style="margin:0 5px;"></a>
+                                            <a href="#"><img src="'.$instagram_icon.'" width="24" style="margin:0 5px;"></a>
+                                            <a href="#"><img src="'.$whatsapp_icon.'" width="24" style="margin:0 5px;"></a>
+                                        </div>
+                                        <p style="font-size: 12px; color: #777;">&copy; ' . date("Y") . ' ' . $app_name . '</p>
+                                    </div>
+                                </div>
+                            </div>';
+
+                            $mail = new PHPMailer(true);
+                            $mail->isSMTP();
+                            $mail->Host       = 'smtp.gmail.com'; 
+                            $mail->SMTPAuth   = true;
+                            $mail->Username   = 'newleastpaysolution@gmail.com'; 
+                            $mail->Password   = 'swhayyxzazfdcmif'; 
+                            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+                            $mail->Port       = 465;
+
+                            $mail->setFrom($app_email, $app_name);
+                            $mail->addAddress($email);
+                            $mail->isHTML(true);
+                            $mail->Subject = "Voter Registration Confirmation";
+                            $mail->Body    = $htmlMessage;
+                            $mail->send();
+                        } catch (Exception $e) { /* Silent fail */ }
+                    }
+                }
+            } catch (PDOException $e) {
+                $error = "System error: " . $e->getMessage();
+            }
+        }
+    } else {
+        $error = "All fields are required.";
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">

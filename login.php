@@ -6,6 +6,11 @@ require 'email_vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // --- CSRF TOKEN GENERATION ---
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -42,23 +47,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
 
             } elseif ((int)$user['is_verified'] !== 1) {
                 $error = "Your account is not verified. Contact Eleco";
-                        } else {
+            } else {
                 // --- SUCCESS LOGIC ---
                 session_regenerate_id(true);
                 $user_id = $user['id'];
+                
+                // FIXED: Generate the token BEFORE using it in the query
+                $session_token = bin2hex(random_bytes(32));
 
                 // Update last login in users table
                 $update = $dbh->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
                 $update->execute([$user_id]);
 
-                // Save to logins table
-                $logSuccess = $dbh->prepare("INSERT INTO logins (user_id, ip_address, device_name, created_at) VALUES (?, ?, ?, NOW())");
-                $logSuccess->execute([$user_id, $ip_address, $device_name]);
+                // Save to voter_sessions table
+                $logSession = $dbh->prepare("INSERT INTO voter_sessions (user_id, ip_address, device_name, session_token, login_time, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+                $logSession->execute([$user_id, $ip_address, $device_name, $session_token]);
 
-                $_SESSION['user_id']   = $user['id'];
-                $_SESSION['full_name'] = $user['full_name'];
-                $_SESSION['email']     = $user['email'];
-                $_SESSION['role']      = $user['role'];
+                $_SESSION['user_id']       = $user['id'];
+                $_SESSION['full_name']     = $user['full_name'];
+                $_SESSION['email']         = $user['email'];
+                $_SESSION['role']          = $user['role'];
+                $_SESSION['session_token'] = $session_token; 
 
                 // --- SEND LOGIN NOTIFICATION EMAIL ---
                 try {
@@ -76,15 +85,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                     $htmlMessage = '
                     <html>
                     <head><style>' . $email_css . '</style></head>
-                    <body class="email-body" style="background-color: #f0f2f5; font-family: sans-serif; padding: 20px;">
-                        <div class="email-container" style="max-width: 600px; margin: auto; background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
-                            <div class="email-header" style="background-color: #0a192f; color: #fff; padding: 30px; text-align: center;">
+                    <body style="background-color: #f0f2f5; font-family: sans-serif; padding: 20px;">
+                        <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
+                            <div style="background-color: #0a192f; color: #fff; padding: 30px; text-align: center;">
                                 <h2 style="margin:0;">Login Notification</h2>
                             </div>
-                            <div class="email-content" style="padding: 30px; color: #334155; line-height: 1.6;">
+                            <div style="padding: 30px; color: #334155; line-height: 1.6;">
                                 <p>Hello <strong>' . htmlspecialchars($user['full_name']) . '</strong>,</p>
                                 <p>A successful login was just recorded for your <strong>' . htmlspecialchars($app_name) . '</strong> account.</p>
-                                <div class="info-box" style="background: #f8fafc; border-left: 4px solid #1e3a8a; padding: 15px; margin: 20px 0;">
+                                <div style="background: #f8fafc; border-left: 4px solid #1e3a8a; padding: 15px; margin: 20px 0;">
                                     <strong>Details:</strong><br>
                                     Time: ' . $current_time . '<br>
                                     IP Address: ' . htmlspecialchars($ip_address) . '<br>
@@ -92,8 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                                 </div>
                                 <p style="font-size: 14px; color: #64748b;">If this was not you, please secure your account by changing your password immediately.</p>
                             </div>
-                            <div class="email-footer" style="background: #f1f5f9; padding: 20px; text-align: center;">
-                                <div class="social-icons" style="margin-bottom: 10px;">
+                            <div style="background: #f1f5f9; padding: 20px; text-align: center;">
+                                <div style="margin-bottom: 10px;">
                                     <a href="#"><img src="'.$facebook_icon.'" width="24" style="margin: 0 5px;"></a>
                                     <a href="#"><img src="'.$twitter_icon.'" width="24" style="margin: 0 5px;"></a>
                                     <a href="#"><img src="'.$instagram_icon.'" width="24" style="margin: 0 5px;"></a>
@@ -120,16 +129,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                     $mail->Subject = $subject;
                     $mail->Body    = $htmlMessage;
                     $mail->send();
-
-                } catch (Exception $e) {
-                    // Silent fail for mail
-                }
+                } catch (Exception $e) { }
 
                 // Log audit activity
                 $dbh->prepare("INSERT INTO audit_logs (user_id, action, ip_address) VALUES (?,?,?)")
                     ->execute([$user_id, "Successful login", $ip_address]);
 
-                // ROLE-BASED REDIRECTION
+                // REDIRECTION
                 if ($user['role'] === 'eleco') {
                     header("Location: Admin/dashboard");
                 } else {
@@ -138,6 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                 exit;
             }
         } catch (PDOException $e) {
+            // For debugging, you can use: $error = "System error: " . $e->getMessage();
             $error = "System error. Please try again later.";
         }
     } else {
@@ -157,7 +164,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col font-sans">
 
-
     <main class="flex-grow flex items-center justify-center px-4 py-12">
         <div class="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
             
@@ -166,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                     <i class="fas fa-fingerprint text-blue-400 text-3xl"></i>
                 </div>
                 <h2 class="text-2xl font-bold text-white">Secure Access</h2>
-                <p class="text-blue-200 text-sm mt-1">Login Portal</p>
+                <p class="text-blue-200 text-sm mt-1">Voter Login Portal</p>
             </div>
             
             <?php if ($error): ?>
@@ -185,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                             <i class="fas fa-envelope"></i>
                         </span>
                         <input type="email" name="email" required 
-                               class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" 
+                               class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
                                placeholder="name@example.com">
                     </div>
                 </div>
@@ -193,14 +199,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                 <div>
                     <div class="flex justify-between mb-2">
                         <label class="text-gray-700 text-sm font-semibold">Password</label>
-                        <a href="forgot_password" class="text-xs text-blue-600 hover:underline">Forgot password ?</a>
+                        <a href="forgot_password" class="text-xs text-blue-600 hover:underline">Forgot password?</a>
                     </div>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
                             <i class="fas fa-lock"></i>
                         </span>
                         <input type="password" name="password" required 
-                               class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" 
+                               class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
                                placeholder="••••••••">
                     </div>
                 </div>
@@ -212,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                 </button>
 
                 <p class="text-center text-sm text-gray-600">
-                    Not Yet a registered Voter ? <a href="voter_signup" class="text-blue-600 font-bold hover:underline">Register</a>
+                    Not registered? <a href="voter_signup" class="text-blue-600 font-bold hover:underline">Register</a>
                 </p>
             </form>
         </div>

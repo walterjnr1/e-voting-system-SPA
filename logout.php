@@ -1,14 +1,22 @@
 <?php
-//include('inc/app_data.php');
+session_start();
 include 'database/connection.php'; 
+include('config/activity_log_function.php'); 
 
 if (empty($_SESSION['user_id'])) {
- 
-    $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
-  
-    header("Location: login");
-    exit;
+     $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
+      header("Location: login");
+     exit;
 }
+$session_token = $_SESSION['session_token'] ?? null;
+$user_id       = $_SESSION['user_id'];
+
+ // Update logout_time in voter_sessions table
+    if ($session_token) {
+        
+        $updateSession = $dbh->prepare("UPDATE voter_sessions SET logout_time = NOW() WHERE session_token = ? AND user_id = ? AND logout_time IS NULL");
+        $updateSession->execute([$session_token, $user_id]);
+    }
 
 // ✅ Log activity as logout
         if (function_exists('log_activity')) {

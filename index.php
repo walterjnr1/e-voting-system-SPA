@@ -4,7 +4,7 @@ include('inc/app_data.php');
 
 if (empty($_SESSION['user_id'])) {
     $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
-    header("Location: ../login");
+    header("Location: login"); 
     exit;
 }
 
@@ -17,11 +17,13 @@ try {
     $stmt->execute();
     $election = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Helper variable for button states
+    // Helper variable for states
     $is_live = ($election && $election['status'] === 'active');
+    $title = $election ? htmlspecialchars($election['title']) : "Election";
 } catch (PDOException $e) {
     $election = null;
     $is_live = false;
+    $title = "Election";
 }
 ?>
 <!DOCTYPE html>
@@ -29,7 +31,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($app_name); ?> Alumni E-Vote | Secure & Transparent</title>
+    <title><?php echo htmlspecialchars($app_name); ?> | Secure E-Vote</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="icon" href="<?php echo htmlspecialchars($app_logo); ?>" type="image/x-icon">
@@ -44,7 +46,7 @@ try {
         <div class="container mx-auto text-center">
             <h2 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4 tracking-tight">Your Voice, Our Future.</h2>
             <p class="text-gray-600 text-lg mb-8 max-w-2xl mx-auto">
-                Securely cast your vote for the <?php echo $title; ?>. Verified, encrypted, and transparent.
+                Securely cast your vote for the <strong><?php echo $title; ?></strong>. Verified, encrypted, and transparent.
             </p>
             
             <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
@@ -84,31 +86,23 @@ try {
                             <i class="fas fa-clock text-blue-500 text-2xl"></i>
                         </div>
                         <div>
-                            <h3 class="font-bold text-blue-900 text-lg uppercase tracking-wider text-sm md:text-base">
-                                Ongoing Election: <?php echo htmlspecialchars($election['title']); ?>
+                            <h3 class="font-bold text-blue-900 uppercase tracking-wider text-sm md:text-base">
+                                Ongoing: <?php echo htmlspecialchars($election['title']); ?>
                             </h3>
                             <p class="text-blue-700 font-medium">
                                 Ends in: <span id="electionTimer" class="font-mono font-bold text-blue-900" 
                                                data-time="<?php echo $election['end_datetime']; ?>">
-                                               Calculating...
+                                               Initializing...
                                          </span>
                             </p>
                         </div>
                     </div>
-
-                    <div class="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end">
-                        <?php if ($election['allow_result_view'] == 1): ?>
-                            <a href="results" class="text-blue-600 hover:text-blue-800 font-bold text-sm underline flex items-center">
-                                <i class="fas fa-eye mr-1"></i> Quick Tally
-                            </a>
-                        <?php endif; ?>
-                        
-                        <span class="bg-green-200 text-green-800 px-4 py-1 rounded-full text-xs font-black animate-pulse flex items-center border border-green-300">
-                            <span class="mr-2">●</span> LIVE
+                    <div class="flex items-center space-x-4">
+                        <span class="bg-green-200 text-green-800 px-4 py-1 rounded-full text-xs font-black animate-pulse border border-green-300">
+                            ● LIVE
                         </span>
                     </div>
                 </div>
-
             <?php else: ?>
                 <div class="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-lg shadow-md flex flex-col md:flex-row items-center justify-between gap-4">
                     <div class="flex items-center">
@@ -116,22 +110,20 @@ try {
                             <i class="fas fa-calendar-alt text-amber-500 text-2xl"></i>
                         </div>
                         <div>
-                            <h3 class="font-bold text-amber-900 text-lg uppercase tracking-wider text-sm md:text-base">
+                            <h3 class="font-bold text-amber-900 uppercase tracking-wider text-sm md:text-base">
                                 Next Election: <?php echo htmlspecialchars($election['title']); ?>
                             </h3>
                             <p class="text-amber-700 font-medium">
                                 Starts in: <span id="electionTimer" class="font-mono font-bold text-amber-900" 
                                                  data-time="<?php echo $election['start_datetime']; ?>">
-                                                 Calculating...
+                                                 Initializing...
                                            </span>
                             </p>
                         </div>
                     </div>
-                    <div class="flex items-center">
-                        <span class="bg-amber-200 text-amber-800 px-4 py-1 rounded-full text-xs font-black flex items-center border border-amber-300">
-                            COMING SOON
-                        </span>
-                    </div>
+                    <span class="bg-amber-200 text-amber-800 px-4 py-1 rounded-full text-xs font-black border border-amber-300">
+                        COMING SOON
+                    </span>
                 </div>
             <?php endif; ?>
         </section>
@@ -147,10 +139,12 @@ try {
                     const now = new Date().getTime();
                     const diff = targetTime - now;
 
-                    if (diff < 0) {
+                    // If time is up, stop interval and reload ONCE
+                    if (diff <= 0) {
                         clearInterval(interval);
-                        display.innerHTML = "REFRESHING...";
-                        window.location.reload();
+                        display.innerHTML = "ELECTION UPDATING...";
+                        // Delay reload by 2 seconds to prevent aggressive looping
+                        setTimeout(() => { location.reload(); }, 2000);
                         return;
                     }
 
@@ -169,35 +163,33 @@ try {
         <section class="container mx-auto -mt-8 px-4">
             <div class="bg-gray-50 border-l-4 border-gray-400 p-6 rounded-r-lg shadow-sm">
                 <h3 class="font-bold text-gray-500 uppercase tracking-widest text-sm">No active elections at the moment.</h3>
-                <p class="text-gray-400 text-sm">Please check back later for upcoming schedules.</p>
             </div>
         </section>
     <?php endif; ?>
 
     <section id="how-it-works" class="py-20 container mx-auto px-4">
         <h3 class="text-3xl font-black text-center text-gray-900 mb-12 uppercase tracking-tighter">Why Vote With Us?</h3>
-        
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 text-center hover:shadow-md transition">
+            <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 text-center">
                 <div class="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 text-2xl">
                     <i class="fas fa-user-shield"></i>
                 </div>
                 <h4 class="font-bold text-gray-800 mb-2">Verified Identity</h4>
-                <p class="text-gray-500 leading-relaxed text-sm">Only verified alumni from the official database can participate in the electoral process.</p>
+                <p class="text-gray-500 text-sm">Only verified alumni from the official database can participate.</p>
             </div>
-            <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 text-center hover:shadow-md transition">
+            <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 text-center">
                 <div class="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 text-2xl">
                     <i class="fas fa-fingerprint"></i>
                 </div>
                 <h4 class="font-bold text-gray-800 mb-2">Anonymous Ballot</h4>
-                <p class="text-gray-500 leading-relaxed text-sm">Your identity is completely decoupled from your vote, ensuring 100% privacy and integrity.</p>
+                <p class="text-gray-500 text-sm">Your identity is decoupled from your vote for 100% privacy.</p>
             </div>
-            <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 text-center hover:shadow-md transition">
+            <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 text-center">
                 <div class="bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-600 text-2xl">
                     <i class="fas fa-bolt"></i>
                 </div>
                 <h4 class="font-bold text-gray-800 mb-2">Instant Results</h4>
-                <p class="text-gray-500 leading-relaxed text-sm">View real-time tallying and analytics as soon as votes are cast and verified by the system.</p>
+                <p class="text-gray-500 text-sm">View real-time tallying as soon as votes are cast.</p>
             </div>
         </div>
     </section>

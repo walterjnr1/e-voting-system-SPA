@@ -18,6 +18,7 @@ function getInitials($name) {
 }
 
 $user_initials = !empty($_SESSION['full_name']) ? getInitials($_SESSION['full_name']) : 'U';
+$display_name = $_SESSION['full_name'] ?? 'User';
 ?>
 
 <nav class="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-50">
@@ -35,21 +36,21 @@ $user_initials = !empty($_SESSION['full_name']) ? getInitials($_SESSION['full_na
 
         <div class="hidden lg:flex items-center space-x-6">
             <a href="index" class="hover:text-blue-300 transition font-medium">Home</a>
-                        <?php if (empty($_SESSION['user_id'])): ?>
-
-            <a href="login" class="hover:text-blue-300 transition font-medium">Login</a>
-                        <?php endif; ?>
-
-             <?php if (empty($_SESSION['user_id'])): ?>
+            
+            <?php if (empty($_SESSION['user_id'])): ?>
+                <a href="login" class="hover:text-blue-300 transition font-medium">Login</a>
+            <?php endif; ?>
 
             <?php if ($is_registration_open): ?>
-                <a href="voter_signup" class="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md font-semibold text-sm">
-                    Voter Signup
-                </a>
+                <?php if (empty($_SESSION['user_id'])): ?>
+                    <a href="voter_signup" class="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-md font-semibold text-sm">
+                        Voter Signup
+                    </a>
+                <?php endif; ?>
+
                 <a href="candidate_signup" class="bg-white text-blue-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition shadow-md font-semibold text-sm">
                     Candidate Nomination
                 </a>
-            <?php endif; ?>
             <?php endif; ?>
 
             <?php if (!empty($_SESSION['user_id'])): ?>
@@ -63,7 +64,7 @@ $user_initials = !empty($_SESSION['full_name']) ? getInitials($_SESSION['full_na
                     <div id="profile-dropdown" class="hidden absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-2xl py-2 z-50 border border-gray-100 text-gray-800">
                         <div class="px-4 py-2 border-b border-gray-100 mb-1">
                             <p class="text-xs text-gray-400 uppercase font-bold tracking-wider">Account</p>
-                            <p class="text-sm font-semibold truncate"><?php echo $_SESSION['full_name'] ?? 'User'; ?></p>
+                            <p class="text-sm font-semibold truncate"><?php echo htmlspecialchars($display_name); ?></p>
                         </div>
                         <a href="profile" class="block px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-600"><i class="fas fa-user-edit mr-3"></i> Edit Profile</a>
                         <a href="logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-bold"><i class="fas fa-sign-out-alt mr-3"></i> Logout</a>
@@ -80,9 +81,14 @@ $user_initials = !empty($_SESSION['full_name']) ? getInitials($_SESSION['full_na
                             <?php echo $user_initials; ?>
                         </div>
                     </button>
-                    <div id="mobile-profile-dropdown" class="hidden absolute right-0 mt-3 w-40 bg-white rounded-lg shadow-xl py-2 z-50 text-gray-800 border border-gray-100">
-                        <a href="profile" class="block px-4 py-2 text-xs font-bold"><i class="fas fa-user-edit mr-2"></i> Profile</a>
-                        <a href="logout" class="block px-4 py-2 text-xs text-red-600 font-bold"><i class="fas fa-sign-out-alt mr-2"></i> Logout</a>
+                    
+                    <div id="mobile-profile-dropdown" class="hidden absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-xl py-2 z-50 text-gray-800 border border-gray-100">
+                        <div class="px-4 py-2 border-b border-gray-100 mb-1">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Account</p>
+                            <p class="text-xs font-bold text-blue-900 truncate"><?php echo htmlspecialchars($display_name); ?></p>
+                        </div>
+                        <a href="profile" class="block px-4 py-3 text-xs font-semibold hover:bg-gray-50"><i class="fas fa-user-edit mr-2 text-blue-600"></i> Edit Profile</a>
+                        <a href="logout" class="block px-4 py-3 text-xs text-red-600 font-bold hover:bg-red-50"><i class="fas fa-sign-out-alt mr-2"></i> Logout</a>
                     </div>
                 </div>
             <?php endif; ?>
@@ -93,18 +99,20 @@ $user_initials = !empty($_SESSION['full_name']) ? getInitials($_SESSION['full_na
         </div>
     </div>
 
-    <div id="mobile-menu" class="hidden lg:hidden flex flex-col space-y-2 mt-4 pb-4 border-t border-blue-800 pt-4 px-2">
-        <a href="index" class="block text-center hover:bg-blue-800 py-3 rounded-lg">Home</a>
-                
+    <div id="mobile-menu" class="hidden lg:hidden flex flex-col space-y-2 mt-4 pb-4 border-t border-blue-800 pt-4 px-2 text-sm">
+        <a href="index" class="block text-center hover:bg-blue-800 py-3 rounded-lg font-medium">Home</a>
+        
         <?php if (empty($_SESSION['user_id'])): ?>
-        <a href="login" class="block text-center hover:bg-blue-800 py-3 rounded-lg">Login</a>
-                <?php endif; ?>
+            <a href="login" class="block text-center hover:bg-blue-800 py-3 rounded-lg font-medium">Login</a>
+        <?php endif; ?>
 
         <?php if ($is_registration_open): ?>
-            <a href="voter_signup" class="block text-center bg-blue-600 py-3 rounded-lg font-semibold">Voter Signup</a>
-            <a href="candidate_signup" class="block text-center bg-white text-blue-900 py-3 rounded-lg font-semibold">Candidate Nomination</a>
+            <?php if (empty($_SESSION['user_id'])): ?>
+                <a href="voter_signup" class="block text-center bg-blue-600 py-3 rounded-lg font-bold shadow-md">Voter Signup</a>
+            <?php endif; ?>
+            <a href="candidate_signup" class="block text-center bg-white text-blue-900 py-3 rounded-lg font-bold shadow-md">Candidate Nomination</a>
         <?php endif; ?>
-        
+
     </div>
 </nav>
 
@@ -115,13 +123,19 @@ $user_initials = !empty($_SESSION['full_name']) ? getInitials($_SESSION['full_na
         if(btn && menu) {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                menu.classList.toggle('hidden');
                 
+                // Toggle current
+                const isHidden = menu.classList.contains('hidden');
+                
+                // Close all first
                 const menus = ['profile-dropdown', 'mobile-profile-dropdown', 'mobile-menu'];
                 menus.forEach(id => {
-                    const otherMenu = document.getElementById(id);
-                    if(id !== menuId && otherMenu) otherMenu.classList.add('hidden');
+                    const m = document.getElementById(id);
+                    if(m) m.classList.add('hidden');
                 });
+
+                // If it was hidden, show it now
+                if(isHidden) menu.classList.remove('hidden');
             });
         }
     };
@@ -130,9 +144,9 @@ $user_initials = !empty($_SESSION['full_name']) ? getInitials($_SESSION['full_na
     setupToggle('profile-menu-button', 'profile-dropdown');
     setupToggle('mobile-profile-button', 'mobile-profile-dropdown');
 
+    // Close on outside click
     window.addEventListener('click', () => {
-        const menus = ['profile-dropdown', 'mobile-profile-dropdown', 'mobile-menu'];
-        menus.forEach(id => {
+        ['profile-dropdown', 'mobile-profile-dropdown', 'mobile-menu'].forEach(id => {
             const menu = document.getElementById(id);
             if(menu) menu.classList.add('hidden');
         });
