@@ -103,13 +103,36 @@
     </li>
     
 
-  <li class="nav-item mb-1">
-    <a href="login-records" class="nav-link text-white d-flex align-items-center">
-        <i class="fas fa-shield-alt me-2"></i> 
-        <span>Manage Logins</span>
-    </a>
-</li>
+<li class="nav-item mb-1">
+        <a href="#loginSubmenu" 
+           data-bs-toggle="collapse" 
+           role="button" 
+           aria-expanded="false" 
+           aria-controls="loginSubmenu" 
+           class="nav-link text-white d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-shield-alt me-2"></i> Manage Logins</span>
+            <i class="fas fa-chevron-down small opacity-50"></i>
+        </a>
+        <div class="collapse" id="loginSubmenu" data-bs-parent="#sidebarMenu">
+            <ul class="nav flex-column ms-4 small border-start border-secondary border-opacity-25 mt-1">
+                <li class="nav-item">
+                    <a href="user_sessions" class="nav-link text-white-50 hover:text-white py-1">
+                        <i class="fas fa-user-tie me-2"></i> User Session
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="failed_logins" class="nav-link text-white-50 hover:text-white py-1">
+                        <i class="fas fa-user-tie me-2"></i> Failed Logins
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
+    </li>
     
+
+
+
  <li class="nav-item mb-1">
         <a href="#candidateSubmenu" 
            data-bs-toggle="collapse" 

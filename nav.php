@@ -40,6 +40,7 @@ $display_name = $_SESSION['full_name'] ?? 'User';
             <?php if (empty($_SESSION['user_id'])): ?>
                 <a href="login" class="hover:text-blue-300 transition font-medium">Login</a>
             <?php endif; ?>
+                <a href="election/ballot" class="hover:text-blue-300 transition font-medium">Vote</a>
 
             <?php if ($is_registration_open): ?>
                 <?php if (empty($_SESSION['user_id'])): ?>
@@ -105,6 +106,7 @@ $display_name = $_SESSION['full_name'] ?? 'User';
         <?php if (empty($_SESSION['user_id'])): ?>
             <a href="login" class="block text-center hover:bg-blue-800 py-3 rounded-lg font-medium">Login</a>
         <?php endif; ?>
+            <a href="election/ballot" class="block text-center hover:bg-blue-800 py-3 rounded-lg font-medium">Vote</a>
 
         <?php if ($is_registration_open): ?>
             <?php if (empty($_SESSION['user_id'])): ?>

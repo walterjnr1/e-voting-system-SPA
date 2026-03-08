@@ -2,6 +2,10 @@
 include('../inc/app_data.php');
 include '../database/connection.php'; 
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (empty($_SESSION['user_id'])) {
     $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
     header("Location: ../login");
@@ -13,11 +17,12 @@ $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $start = ($page - 1) * $limit;
 
-$total_stmt = $dbh->query("SELECT COUNT(*) FROM users WHERE role = 'voter'");
+$total_stmt = $dbh->query("SELECT COUNT(*) FROM users ");
 $total_results = $total_stmt->fetchColumn();
 $total_pages = ceil($total_results / $limit);
 
-$stmt = $dbh->prepare("SELECT * FROM users WHERE role = 'voter' ORDER BY id DESC LIMIT $start, $limit");
+// Updated query to include user_image
+$stmt = $dbh->prepare("SELECT * FROM users ORDER BY id DESC LIMIT $start, $limit");
 $stmt->execute();
 $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -36,6 +41,7 @@ $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .toggle-icon:hover { transform: scale(1.2); color: #4f46e5; }
         .text-xs { font-size: 0.72rem; }
         .voted-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .voter-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid #eef2ff; }
     </style>
 </head>
 <body>
@@ -84,11 +90,21 @@ $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     </tr>
                                 </thead>
                                 <tbody class="small" id="tableBody">
-                                    <?php foreach ($allVoters as $row): ?>
+                                    <?php foreach ($allVoters as $row): 
+                                        $image_path = !empty($row['user_image']) ? '../' . $row['user_image'] : 'https://ui-avatars.com/api/?name=' . urlencode($row['full_name']) . '&background=4f46e5&color=fff';
+                                    ?>
                                     <tr>
                                         <td class="ps-3">
-                                            <div class="fw-bold"><?= htmlspecialchars($row['full_name']) ?></div>
-                                            <div class="text-muted text-xs"><?= htmlspecialchars($row['email']) ?></div>
+                                            <div class="d-flex align-items-center">
+                                                <img src="<?= $image_path ?>" 
+                                                     class="voter-avatar me-3" 
+                                                     alt="Profile"
+                                                     onerror="this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png'">
+                                                <div>
+                                                    <div class="fw-bold text-dark"><?= htmlspecialchars($row['full_name']) ?></div>
+                                                    <div class="text-muted text-xs"><?= htmlspecialchars($row['email']) ?></div>
+                                                </div>
+                                            </div>
                                         </td>
                                         
                                         <td>
@@ -96,7 +112,7 @@ $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                 <span class="badge rounded-pill <?= $row['is_verified'] ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' ?> border">
                                                     <?= $row['is_verified'] ? 'Verified' : 'Unverified' ?>
                                                 </span>
-                                                <i class="fas fa-sync-alt ms-2 toggle-icon" onclick="confirmToggle(<?= $row['id'] ?>, 'is_verified', '<?= $row['is_verified'] ? 0 : 1 ?>')"></i>
+                                                <i class="fas fa-sync-alt ms-2 toggle-icon" title="Toggle Verification" onclick="confirmToggle(<?= $row['id'] ?>, 'is_verified', '<?= $row['is_verified'] ? 0 : 1 ?>')"></i>
                                             </div>
                                         </td>
 
@@ -105,7 +121,7 @@ $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                 <span class="badge rounded-pill <?= $row['financial_status'] == 'active' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' ?> border">
                                                     <?= ucfirst($row['financial_status']) ?>
                                                 </span>
-                                                <i class="fas fa-sync-alt ms-2 toggle-icon" onclick="confirmToggle(<?= $row['id'] ?>, 'financial_status', '<?= $row['financial_status'] == 'active' ? 'non-active' : 'active' ?>')"></i>
+                                                <i class="fas fa-sync-alt ms-2 toggle-icon" title="Toggle Financial Status" onclick="confirmToggle(<?= $row['id'] ?>, 'financial_status', '<?= $row['financial_status'] == 'active' ? 'non-active' : 'active' ?>')"></i>
                                             </div>
                                         </td>
 
@@ -122,7 +138,7 @@ $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                 <span class="badge rounded-pill <?= $row['status'] == 'active' ? 'bg-primary-subtle text-primary' : 'bg-warning-subtle text-warning' ?> border">
                                                     <?= ucfirst($row['status']) ?>
                                                 </span>
-                                                <i class="fas fa-sync-alt ms-2 toggle-icon" onclick="confirmToggle(<?= $row['id'] ?>, 'status', '<?= $row['status'] == 'active' ? 'suspended' : 'active' ?>')"></i>
+                                                <i class="fas fa-sync-alt ms-2 toggle-icon" title="Toggle Account Status" onclick="confirmToggle(<?= $row['id'] ?>, 'status', '<?= $row['status'] == 'active' ? 'suspended' : 'active' ?>')"></i>
                                             </div>
                                         </td>
 
@@ -159,11 +175,8 @@ $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
             window.location.href = `delete_voter.php?id=${id}`;
         }
     }
-
-   
 </script>
 <?php include('partials/table-script.php'); ?>
-
 <?php include('partials/sweetalert.php'); ?>
 </body>
 </html>
