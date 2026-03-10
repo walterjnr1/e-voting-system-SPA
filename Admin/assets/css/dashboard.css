@@ -1,60 +1,79 @@
-        body, html { height: 100%; background-color: #f4f7f6; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
-        
-        #sidebar { 
-            min-width: 250px; max-width: 250px;
-            background: #1e293b; color: white; min-height: 100vh;
-            transition: all 0.3s; z-index: 1050;
-        }
+/* General Layout */
+body, html {
+    height: 100%;
+    background-color: #f8fafc;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    color: #1e293b;
+}
 
-        @media (max-width: 991.98px) {
-            #sidebar { margin-left: -250px; position: fixed; }
-            #sidebar.active { margin-left: 0; }
-        }
+#sidebar { 
+    min-width: 260px;
+    max-width: 260px;
+    background: #0f172a !important; /* Slate 900 */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1060;
+}
 
-        .navbar-custom { background: white; padding: 10px 20px; border-bottom: 1px solid #e2e8f0; }
-        .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .card-icon { float: right; font-size: 2rem; opacity: 0.3; color: #fff; }
-        
-        #sidebar-overlay {
-            display: none; position: fixed;
-            width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.5); z-index: 1040;
-        }
-        #sidebar-overlay.active { display: block; }
+/* Sidebar Responsive Behavior */
+@media (max-width: 991.98px) {
+    #sidebar {
+        margin-left: -260px;
+        position: fixed;
+        height: 100vh;
+    }
+    #sidebar.active {
+        margin-left: 0;
+    }
+}
 
-        .text-xs { font-size: 0.75rem; }
-        
-        /* Footer Specific Styling */
-        .main-footer {
-            background: transparent !important;
-            color: #6c757d;
-        }
+/* Navbar */
+.navbar-custom {
+    background: #ffffff;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    z-index: 1030;
+}
 
+/* Sidebar Overlay */
+#sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.5); /* Slate 900 with Alpha */
+    backdrop-filter: blur(2px);
+    z-index: 1040;
+}
+#sidebar-overlay.active {
+    display: block;
+}
 
+/* Dashboard Cards */
+.card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
 
-/* Form Styling */
-.form-label {
+.bg-primary-gradient {
+    background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+}
+
+.bg-success-gradient {
+    background: linear-gradient(135deg, #10b981 0%, #065f46 100%);
+}
+
+/* Typography & Utils */
+.x-small { font-size: 0.7rem; }
+.tracking-wider { letter-spacing: 0.05em; }
+.uppercase { text-transform: uppercase; }
+
+/* Table Adjustments */
+.table thead th {
+    background-color: #f1f5f9;
+    color: #64748b;
     font-weight: 600;
-    font-size: 0.875rem;
-    color: #475569;
-}
-
-.form-control:focus, .form-select:focus {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.1);
-}
-
-.btn-primary {
-    background-color: #4f46e5;
-    border-color: #4f46e5;
-}
-
-.btn-primary:hover {
-    background-color: #4338ca;
-}
-
-/* Card Header custom padding */
-.card-header-main {
-    padding: 1.5rem;
-    border-bottom: 1px solid #e2e8f0 !important;
 }

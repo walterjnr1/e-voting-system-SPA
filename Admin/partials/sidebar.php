@@ -161,7 +161,7 @@
     </li>
     
     <li class="nav-item mb-1">
-        <a href="candidate-record" class="nav-link text-white">
+        <a href="live_results" class="nav-link text-white">
             <i class="fas fa-chart-bar me-2"></i> Live Results
         </a>
     </li>
@@ -179,22 +179,23 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Sidebar Logic
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    const btn = document.getElementById('sidebarCollapse');
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        const btn = document.getElementById('sidebarCollapse');
 
-    if(btn) {
-        btn.addEventListener('click', () => {
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
-        });
-    }
+        if(btn) {
+            btn.addEventListener('click', function() {
+                sidebar.classList.toggle('active');
+                overlay.classList.toggle('active');
+            });
+        }
 
-    if(overlay) {
-        overlay.addEventListener('click', () => {
-            sidebar.classList.remove('active');
-            overlay.classList.remove('active');
-        });
-    }
+        if(overlay) {
+            overlay.addEventListener('click', function() {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            });
+        }
+    });
 </script>

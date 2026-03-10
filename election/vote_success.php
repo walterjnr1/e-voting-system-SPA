@@ -116,7 +116,7 @@ $vote_timestamp = date("F j, Y, g:i a");
                         <button onclick="window.print()" class="flex-1 px-6 py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-colors flex items-center justify-center">
                             <i class="fas fa-print mr-2"></i> Print Receipt
                         </button>
-                        <a href="results" class="flex-1 px-6 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center">
+                        <a href="result_page" class="flex-1 px-6 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center">
                             <i class="fas fa-chart-pie mr-2"></i> View Live Stats
                         </a>
                     </div>

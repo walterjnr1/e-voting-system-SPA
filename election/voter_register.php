@@ -13,7 +13,7 @@ try {
     // Fetching user details including the user_image column
     $stmt = $dbh->prepare("SELECT full_name, nickname, phone, user_image, created_at 
                            FROM users 
-                           WHERE is_verified = 1 ans status='active' 
+                           WHERE is_verified = 1 and status='active' 
                            ORDER BY full_name ASC");
     $stmt->execute();
     $voters = $stmt->fetchAll(PDO::FETCH_ASSOC);

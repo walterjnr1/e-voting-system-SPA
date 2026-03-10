@@ -3,54 +3,49 @@ include('../inc/app_data.php');
 include '../database/connection.php'; 
 
 if (empty($_SESSION['user_id'])) {
- 
     $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
-  
     header("Location: ../login");
     exit;
 }
-// --- START MOCK DATA SECTION ---
-$app_name = "Secured Vote";
-$totalVoters = 12450;
-$totalVotesCast = 8922;
-$totalCandidates = 32;
-$activeElections = 3;
 
-// Mock Voting Trend (Used for Line Chart)
-$votingTrend = [
-    ['time' => '08:00', 'votes' => 120],
-    ['time' => '10:00', 'votes' => 450],
-    ['time' => '12:00', 'votes' => 1290],
-    ['time' => '14:00', 'votes' => 1820],
-    ['time' => '16:00', 'votes' => 910],
-    ['time' => '18:00', 'votes' => 350]
-];
+/** 1. FETCH DYNAMIC STATS **/
+// Total Voters
+$totalVoters = $dbh->query("SELECT COUNT(*) FROM users ")->fetchColumn();
 
-// Mock Participation Breakdown (Used for Doughnut Chart)
-$departmentBreakdown = [
-    ['name' => 'Engineering', 'count' => 2200],
-    ['name' => 'Science', 'count' => 1950],
-    ['name' => 'Arts', 'count' => 1100],
-    ['name' => 'Business', 'count' => 1820],
-    ['name' => 'Law', 'count' => 950]
-];
+// Total Votes Cast
+$totalVotesCast = $dbh->query("SELECT COUNT(*) FROM votes")->fetchColumn();
 
-// Mock Recent Activity (Used for Table)
-$recentVotes = [
-    ['voter' => 'Chinedu Okeke', 'election' => 'Student Union 2026', 'time' => '1 min ago'],
-    ['voter' => 'Fatima Yusuf', 'election' => 'Faculty Rep', 'time' => '4 mins ago'],
-    ['voter' => 'Blessing Idris', 'election' => 'Student Union 2026', 'time' => '7 mins ago'],
-    ['voter' => 'Adebayo Samuel', 'election' => 'Student Union 2026', 'time' => '12 mins ago']
-];
+// Total Approved Candidates
+$totalCandidates = $dbh->query("SELECT COUNT(*) FROM candidates WHERE status = 'approved'")->fetchColumn();
 
-// Mock System Logs (Used for Audit List)
-$activityLogs = [
-    ['username' => 'super_admin', 'action' => 'Published Results', 'ip_address' => '192.168.1.1'],
-    ['username' => 'officer_01', 'action' => 'Verified Candidate', 'ip_address' => '192.168.1.45'],
-    ['username' => 'system_bot', 'action' => 'Auto-Archived 2025', 'ip_address' => 'localhost']
-];
-// --- END MOCK DATA SECTION ---
+// Active Elections
+$activeElections = $dbh->query("SELECT COUNT(*) FROM elections WHERE status = 'active'")->fetchColumn();
+
+/** 2. FETCH VOTING TREND (Last 24 Hours) **/
+$trendStmt = $dbh->query("SELECT DATE_FORMAT(voted_at, '%H:00') as time, COUNT(*) as count 
+                          FROM votes 
+                          WHERE voted_at >= NOW() - INTERVAL 1 DAY 
+                          GROUP BY time ORDER BY time ASC");
+$votingTrend = $trendStmt->fetchAll(PDO::FETCH_ASSOC);
+
+/** 3. FETCH RECENT ACTIVITY (Last 5 Votes) **/
+$recentVotesStmt = $dbh->query("SELECT u.full_name as voter, e.title as election, v.voted_at as time 
+                                FROM votes v JOIN users u ON v.candidate_id = u.id JOIN elections e ON v.election_id = e.id 
+                                ORDER BY v.voted_at DESC LIMIT 5");
+$recentVotes = $recentVotesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+/** 4. SYSTEM AUDIT LOGS **/
+$auditStmt = $dbh->query("SELECT a.*, u.full_name as username 
+                          FROM audit_logs a 
+                          LEFT JOIN users u ON a.user_id = u.id 
+                          ORDER BY a.created_at DESC LIMIT 5");
+$activityLogs = $auditStmt->fetchAll(PDO::FETCH_ASSOC);
+
+/** 5. VOTER TURNOUT (Financial Status Breakdown) **/
+$turnoutStmt = $dbh->query("SELECT financial_status as name, COUNT(*) as count FROM users GROUP BY financial_status");
+$financialBreakdown = $turnoutStmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,65 +57,80 @@ $activityLogs = [
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="assets/css/dashboard.css" />
     <link rel="icon" href="../<?php echo $app_logo; ?>" type="image/x-icon">
-
+    <style>
+        /* Mobile Toggle Fix */
+        @media (max-width: 991.98px) {
+            #sidebar { margin-left: -250px; transition: all 0.3s; position: fixed; z-index: 1050; height: 100%; }
+            #sidebar.active { margin-left: 0; }
+            #sidebar-overlay.active { display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1040; }
+        }
+        .card-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 2.5rem; opacity: 0.2; }
+    </style>
 </head>
 <body>
 
 <div id="sidebar-overlay"></div>
 
 <div class="d-flex">
-    <nav id="sidebar" class="d-flex flex-column p-3 shadow">
+    <nav id="sidebar" class="bg-dark text-white p-3 shadow" style="width: 250px; min-height: 100vh;">
         <?php include('partials/sidebar.php'); ?>
     </nav>
 
-    <div id="content" class="flex-grow-1">
-        <div class="navbar-custom d-flex justify-content-between align-items-center sticky-top">
-        <?php include('partials/navbar.php');?>
-        </div>
+    <div id="content" class="flex-grow-1" style="width: 100%;">
+       <header class="navbar-custom d-flex justify-content-between align-items-center sticky-top">
+            <div class="d-flex align-items-center">
+                
+                <h5 class="mb-0 d-none d-md-block fw-bold text-dark">Management Panel</h5>
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                <?php include('partials/navbar.php');?>
+            </div>
+        </header>
 
         <div class="p-3 p-md-4">
-            <div class="mb-4">
-                <h4 class="fw-bold">Dashboard Overview</h4>
-                <p class="text-muted small"><?php echo date('l, jS F Y'); ?></p>
+            <div class="mb-4 d-flex justify-content-between align-items-end">
+                <div>
+                    <h4 class="fw-bold mb-0">Admin Dashboard</h4>
+                    <p class="text-muted small mb-0"><?php echo date('l, jS F Y'); ?></p>
+                </div>
+                <div class="badge bg-primary px-3 py-2">System Live</div>
             </div>
 
             <div class="row g-3 mb-4">
-                <div class="col-6 col-lg-3">
-                    <div class="card h-100 border-start border-primary border-4" style="background: linear-gradient(135deg, #4f46e5, #818cf8); color: white;">
-                        <div class="card-body p-3">
-                            <h6 class="text-uppercase small opacity-75">Voters</h6>
-                            <h3 class="mb-0"><?php echo number_format($totalVoters); ?></h3>
-                            <i class="fas fa-id-card card-icon d-none d-sm-block"></i>
+                <div class="col-6 col-md-3">
+                    <div class="card h-100 border-0 shadow-sm text-white" style="background: #4f46e5;">
+                        <div class="card-body position-relative">
+                            <h6 class="small uppercase opacity-75">Voters</h6>
+                            <h3 class="fw-bold"><?= number_format($totalVoters) ?></h3>
+                            <i class="fas fa-users card-icon"></i>
                         </div>
                     </div>
                 </div>
-
-                <div class="col-6 col-lg-3">
-                    <div class="card h-100 border-start border-success border-4" style="background: linear-gradient(135deg, #059669, #34d399); color: white;">
-                        <div class="card-body p-3">
-                            <h6 class="text-uppercase small opacity-75">Votes</h6>
-                            <h3 class="mb-0"><?php echo number_format($totalVotesCast); ?></h3>
-                            <i class="fas fa-check-double card-icon d-none d-sm-block"></i>
+                <div class="col-6 col-md-3">
+                    <div class="card h-100 border-0 shadow-sm text-white" style="background: #059669;">
+                        <div class="card-body position-relative">
+                            <h6 class="small uppercase opacity-75">Total Votes</h6>
+                            <h3 class="fw-bold"><?= number_format($totalVotesCast) ?></h3>
+                            <i class="fas fa-vote-yea card-icon"></i>
                         </div>
                     </div>
                 </div>
-
-                <div class="col-6 col-lg-3">
-                    <div class="card h-100 border-start border-warning border-4" style="background: linear-gradient(135deg, #d97706, #fbbf24); color: white;">
-                        <div class="card-body p-3">
-                            <h6 class="text-uppercase small opacity-75">Candidates</h6>
-                            <h3 class="mb-0"><?php echo $totalCandidates; ?></h3>
-                            <i class="fas fa-user-tie card-icon d-none d-sm-block"></i>
+                <div class="col-6 col-md-3">
+                    <div class="card h-100 border-0 shadow-sm text-white" style="background: #d97706;">
+                        <div class="card-body position-relative">
+                            <h6 class="small uppercase opacity-75">Candidates</h6>
+                            <h3 class="fw-bold"><?= $totalCandidates ?></h3>
+                            <i class="fas fa-user-tie card-icon"></i>
                         </div>
                     </div>
                 </div>
-
-                <div class="col-6 col-lg-3">
-                    <div class="card h-100 border-start border-danger border-4" style="background: linear-gradient(135deg, #dc2626, #f87171); color: white;">
-                        <div class="card-body p-3">
-                            <h6 class="text-uppercase small opacity-75">Live</h6>
-                            <h3 class="mb-0"><?php echo $activeElections; ?></h3>
-                            <i class="fas fa-broadcast-tower card-icon d-none d-sm-block"></i>
+                <div class="col-6 col-md-3">
+                    <div class="card h-100 border-0 shadow-sm text-white" style="background: #dc2626;">
+                        <div class="card-body position-relative">
+                            <h6 class="small uppercase opacity-75">Active Election</h6>
+                            <h3 class="fw-bold"><?= $activeElections ?></h3>
+                            <i class="fas fa-clock card-icon"></i>
                         </div>
                     </div>
                 </div>
@@ -128,128 +138,78 @@ $activityLogs = [
 
             <div class="row g-4 mb-4">
                 <div class="col-12 col-xl-8">
-                    <div class="card p-3 p-md-4">
-                        <h6 class="fw-bold mb-3"><i class="fas fa-chart-line text-primary me-2"></i>Live Voting Trend</h6>
-                        <div style="position: relative; height:300px;">
-                            <canvas id="votingTrendChart"></canvas>
-                        </div>
+                    <div class="card shadow-sm p-3 h-100">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-chart-line text-primary me-2"></i>24h Voting Frequency</h6>
+                        <div style="height:300px;"><canvas id="votingTrendChart"></canvas></div>
                     </div>
                 </div>
                 <div class="col-12 col-xl-4">
-                    <div class="card p-3 p-md-4 h-100">
-                        <h6 class="fw-bold mb-3"><i class="fas fa-chart-pie text-success me-2"></i>Turnout by Dept</h6>
-                        <div style="position: relative; height:250px;">
-                            <canvas id="departmentChart"></canvas>
-                        </div>
+                    <div class="card shadow-sm p-3 h-100">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-chart-pie text-success me-2"></i>Voter Eligibility</h6>
+                        <div style="height:250px;"><canvas id="financialChart"></canvas></div>
                     </div>
                 </div>
             </div>
 
             <div class="row g-4">
-                <div class="col-12 col-lg-7">
-                    <div class="card border-0">
-                        <div class="card-header bg-white border-0 py-3">
-                            <h6 class="mb-0 fw-bold">Recent Activity</h6>
-                        </div>
-                        <div class="card-body table-responsive p-0">
-                            <table class="table table-hover mb-0 align-middle">
-                                <thead class="table-light">
-                                    <tr class="small text-uppercase">
-                                        <th class="ps-3">Voter</th>
-                                        <th>Election</th>
-                                        <th class="d-none d-md-table-cell">Time</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="small">
-                                    <?php foreach ($recentVotes as $vote): ?>
-                                    <tr>
-                                        <td class="ps-3"><strong><?= $vote['voter'] ?></strong></td>
-                                        <td><?= $vote['election'] ?></td>
-                                        <td class="text-muted d-none d-md-table-cell"><?= $vote['time'] ?></td>
-                                        <td><span class="badge bg-success-subtle text-success">Verified</span></td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+              
 
-                <div class="col-12 col-lg-5">
-                    <div class="card border-0">
-                        <div class="card-header bg-white border-0 py-3">
-                            <h6 class="mb-0 fw-bold">System Audit</h6>
-                        </div>
-                      <div class="card-body p-0">
-                            <ul class="list-group list-group-flush">
-                                <?php foreach ($activityLogs as $log): ?>
-                                <li class="list-group-item d-flex justify-content-between align-items-center small py-3">
-                                    <div>
-                                        <div class="fw-bold"><?= $log['action'] ?></div>
-                                        <div class="text-muted text-xs"><?= $log['username'] ?> • <?= $log['ip_address'] ?></div>
-                                    </div>
-                                    <i class="fas fa-chevron-right text-muted opacity-25"></i>
-                                </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
+                <div class="col-12 col-lg-15">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white py-3"><h6 class="mb-0 fw-bold">System Logs</h6></div>
+                        <ul class="list-group list-group-flush">
+                            <?php foreach ($activityLogs as $log): ?>
+                            <li class="list-group-item d-flex justify-content-between align-items-start py-3">
+                                <div class="me-auto">
+                                    <div class="fw-bold small"><?= htmlspecialchars($log['action']) ?></div>
+                                    <div class="text-muted x-small"><?= $log['username'] ?? 'System' ?> • <?= $log['ip_address'] ?></div>
+                                </div>
+                                <span class="text-muted x-small"><?= date('M d', strtotime($log['created_at'])) ?></span>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
                     </div>
                 </div>
             </div>
-            <div class="card-header border-0 py-5">
-                       
-          </div>
-        <footer class="main-footer text-center mt-5 py-3">
-        <?php include('partials/footer.php'); ?>
-        </footer>
         </div>
+        <footer class="text-center py-4 text-muted border-top mt-4">
+            <?php include('partials/footer.php'); ?>
+        </footer>
     </div>
-    </div>
+</div>
 
 <script>
+  
 
-    // Chart Configuration
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
-    };
-
-    // Voting Trend Line Chart
+    // Charts
     new Chart(document.getElementById('votingTrendChart'), {
         type: 'line',
         data: {
             labels: <?= json_encode(array_column($votingTrend, 'time')) ?>,
             datasets: [{
                 label: 'Votes',
-                data: <?= json_encode(array_column($votingTrend, 'votes')) ?>,
+                data: <?= json_encode(array_column($votingTrend, 'count')) ?>,
                 borderColor: '#4f46e5',
-                backgroundColor: 'rgba(79, 70, 229, 0.1)',
                 fill: true,
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
                 tension: 0.4
             }]
         },
-        options: chartOptions
+        options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // Department Doughnut Chart
-    new Chart(document.getElementById('departmentChart'), {
+    new Chart(document.getElementById('financialChart'), {
         type: 'doughnut',
         data: {
-            labels: <?= json_encode(array_column($departmentBreakdown, 'name')) ?>,
+            labels: <?= json_encode(array_column($financialBreakdown, 'name')) ?>,
             datasets: [{
-                data: <?= json_encode(array_column($departmentBreakdown, 'count')) ?>,
-                backgroundColor: ['#4f46e5', '#059669', '#d97706', '#dc2626', '#6366f1'],
+                data: <?= json_encode(array_column($financialBreakdown, 'count')) ?>,
+                backgroundColor: ['#059669', '#dc2626'],
                 borderWidth: 0
             }]
         },
-        options: {
-            ...chartOptions,
-            cutout: '70%'
-        }
+        options: { responsive: true, maintainAspectRatio: false, cutout: '70%' }
     });
 </script>
-
 </body>
 </html>
