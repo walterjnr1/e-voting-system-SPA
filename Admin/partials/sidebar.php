@@ -165,6 +165,12 @@
             <i class="fas fa-chart-bar me-2"></i> Live Results
         </a>
     </li>
+   <li class="nav-item mb-1">
+    <a href="vote_record" class="nav-link text-white">
+        <i class="fas fa-vote-yea me-2"></i> Votes
+    </a>
+</li>
+
 <li class="nav-item mb-1">
     <a href="audit_log" class="nav-link text-white">
         <i class="fas fa-history me-2"></i> Audit Log

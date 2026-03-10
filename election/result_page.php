@@ -2,8 +2,8 @@
 include '../database/connection.php'; 
 include('../inc/app_data.php'); 
 
-// 1. Fetch the currently active election
-$stmt = $dbh->prepare("SELECT * FROM elections WHERE status = 'active' OR status = 'closed' ORDER BY id DESC LIMIT 1");
+// 1. Fetch the currently active or most recent election
+$stmt = $dbh->prepare("SELECT * FROM elections WHERE status IN ('active', 'closed') ORDER BY id DESC LIMIT 1");
 $stmt->execute();
 $election = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -14,17 +14,8 @@ if (!$election) {
 $election_id = $election['id'];
 $election_end_time = $election['end_datetime'];
 
-// 2. Participation Stats
-$voter_stats_stmt = $dbh->prepare("SELECT COUNT(*) as total FROM users ");
-$voter_stats_stmt->execute();
-$total_eligible_voters = $voter_stats_stmt->fetch()['total'];
-
-$voted_stats_stmt = $dbh->prepare("SELECT COUNT(DISTINCT id) as voted FROM users WHERE has_voted = 1");
-$voted_stats_stmt->execute();
-$total_votes_cast = $voted_stats_stmt->fetch()['voted'];
-
-// 3. Check if user is allowed to view results
-if ($election['allow_result_view'] == 0 ) {
+// 2. Check if user is allowed to view results
+if ($election['allow_result_view'] == 0) {
     die("Results for this election are currently hidden by the administrator.");
 }
 ?>
@@ -71,8 +62,8 @@ if ($election['allow_result_view'] == 0 ) {
                         <?php endif; ?>
 
                         <div class="text-right">
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Time Remaining</p>
-                            <p id="header-timer" class="text-xl font-mono font-black text-blue-900">00:00:00:00</p>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Election Status</p>
+                            <p id="header-timer" class="text-xl font-mono font-black text-blue-900 uppercase">CALCULATING...</p>
                         </div>
                     </div>
                 </header>
@@ -101,13 +92,17 @@ if ($election['allow_result_view'] == 0 ) {
                     </h4>
                     
                     <div id="stats-sidebar">
+                        <div class="animate-pulse space-y-4">
+                            <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                            <div class="h-8 bg-gray-200 rounded w-full"></div>
                         </div>
+                    </div>
 
                     <div class="mt-8 bg-gray-900 p-5 rounded-2xl">
                         <h5 class="text-white text-xs font-bold uppercase mb-2 tracking-widest">Audit Transparency</h5>
                         <p class="text-[11px] text-gray-400 leading-relaxed">
-                            Every vote is logged with a unique voter IP and timestamp. These results represent a real-time count of the `votes` table. 
-                            <strong>Verification:</strong> Official results are subject to ELCO audit.
+                            <strong>Security:</strong> All votes are stored with AES-256 encryption. This dashboard performs live decryption of the vote vault to provide real-time updates.
+                            <strong>Audit:</strong> Final results are cross-referenced with network IP logs and voter authentication tokens.
                         </p>
                     </div>
                 </div>
@@ -121,7 +116,6 @@ if ($election['allow_result_view'] == 0 ) {
         const electionEndTime = new Date("<?php echo $election_end_time; ?>").getTime();
         const electionStatus = "<?php echo $election['status']; ?>";
 
-        // 1. COUNTDOWN LOGIC
         function updateTimer() {
             const now = new Date().getTime();
             const distance = electionEndTime - now;
@@ -144,7 +138,6 @@ if ($election['allow_result_view'] == 0 ) {
             return true;
         }
 
-        // 2. DATA FETCHING (Calling a separate fetch file)
         async function fetchElectionData() {
             try {
                 const response = await fetch(`fetch_live_data.php?election_id=<?php echo $election_id; ?>`);
@@ -155,7 +148,6 @@ if ($election['allow_result_view'] == 0 ) {
             }
         }
 
-        // 3. UI RENDERING
         function renderUI(data) {
             const container = document.getElementById('results-container');
             let html = '';
@@ -168,6 +160,7 @@ if ($election['allow_result_view'] == 0 ) {
                     <h3 class="text-xl font-black text-gray-800 mb-6 flex items-center">
                         <span class="w-2 h-6 bg-blue-600 rounded-full mr-3"></span>
                         ${pos.title}
+                        <span class="ml-auto text-xs font-normal text-gray-400">${totalPositionVotes} Total Votes</span>
                     </h3>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
@@ -186,10 +179,11 @@ if ($election['allow_result_view'] == 0 ) {
                                     <div class="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
                                         <div class="bg-blue-600 h-full rounded-full transition-all duration-1000" style="width: ${pct}%"></div>
                                     </div>
+                                    <p class="text-[10px] text-right mt-1 text-gray-400 font-bold">${pct}% OF SECTOR</p>
                                 </div>`;
                             }).join('')}
                         </div>
-                        <div class="h-48 flex justify-center">
+                        <div class="h-56 flex justify-center">
                             <canvas id="chart-${pos.id}"></canvas>
                         </div>
                     </div>
@@ -198,7 +192,6 @@ if ($election['allow_result_view'] == 0 ) {
 
             container.innerHTML = html;
 
-            // Initialize/Update Charts
             data.positions.forEach(pos => {
                 const ctx = document.getElementById(`chart-${pos.id}`).getContext('2d');
                 const labels = pos.candidates.map(c => c.name);
@@ -216,14 +209,17 @@ if ($election['allow_result_view'] == 0 ) {
                             datasets: [{
                                 data: votes,
                                 backgroundColor: ['#1e3a8a', '#2563eb', '#60a5fa', '#93c5fd', '#bfdbfe'],
-                                borderWidth: 2,
+                                borderWidth: 4,
                                 borderColor: '#ffffff'
                             }]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                            plugins: { 
+                                legend: { position: 'bottom', labels: { boxWidth: 12, font: { weight: 'bold', size: 10 } } } 
+                            },
+                            cutout: '70%'
                         }
                     });
                 }
@@ -265,7 +261,7 @@ if ($election['allow_result_view'] == 0 ) {
         window.onload = () => {
             fetchElectionData();
             updateTimer();
-            setInterval(fetchElectionData, 5000); // Fetch every 5 seconds
+            setInterval(fetchElectionData, 10000); // 10s refresh for production stability
             setInterval(updateTimer, 1000); 
         };
     </script>

@@ -81,4 +81,9 @@ if (isset($role) && ($role === 'admin' || $role === 'eleco')) {
     $totalteachers = $dbh->query("SELECT COUNT(*) FROM users WHERE role='teacher'")->fetchColumn();
     $totalparents = $dbh->query("SELECT COUNT(*) FROM users WHERE role='parent'")->fetchColumn();
 }
+
+define('ENCRYPTION_KEY', 'Escobar2012@@'); // Keep this secret
+define('ENCRYPTION_IV', '1234567890123456'); // 16 chars for AES-256-CTR
+
+
 ?>
