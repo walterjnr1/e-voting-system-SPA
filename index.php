@@ -2,17 +2,6 @@
 include 'database/connection.php'; 
 include('inc/app_data.php'); 
 
-// Ensure session is started if not already
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-if (empty($_SESSION['user_id'])) {
-    $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
-    header("Location: login"); 
-    exit;
-}
-
 // --- 1. FETCH THE CURRENTLY ACTIVE OR SCHEDULED ELECTION ---
 try {
     $stmt = $dbh->prepare("SELECT id, title, end_datetime, start_datetime, allow_result_view, status 

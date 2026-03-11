@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $full_name = htmlspecialchars(trim($_POST['fullname']));
     $email     = htmlspecialchars(trim($_POST['email']));
     $phone     = htmlspecialchars(trim($_POST['phone']));
+    $nickname     = htmlspecialchars(trim($_POST['nickname']));
 
     // Check if email is being changed and if new email already exists elsewhere
     $checkEmail = $dbh->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
@@ -40,8 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     if ($checkEmail->rowCount() > 0) {
         $_SESSION['toast'] = ['type' => 'error', 'message' => 'This email is already taken by another account.'];
     } else {
-        $update = $dbh->prepare("UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?");
-        $result = $update->execute([$full_name, $email, $phone, $user_id]);
+        $update = $dbh->prepare("UPDATE users SET full_name = ?, email = ?, phone = ?,nickname = ? WHERE id = ?");
+        $result = $update->execute([$full_name, $email, $phone,$nickname, $user_id]);
 
         if ($result) {
             // Log Activity
@@ -141,12 +142,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                         </div>
                         <div class="card-body p-4">
                             <form action="" method="POST" id="profileForm" class="needs-validation" novalidate>
-                                                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                               <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
     
                             <div class="row g-4">
                                     <div class="col-md-12">
                                         <label class="form-label fw-semibold">Full Name</label>
                                         <input type="text" name="fullname" class="form-control" value="<?php echo htmlspecialchars($user['full_name']); ?>" required>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Nick Name</label>
+                                        <input type="text" name="nickname" class="form-control" value="<?php echo htmlspecialchars($user['nickname']); ?>" required>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Email Address</label>

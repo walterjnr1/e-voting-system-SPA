@@ -39,22 +39,26 @@ try {
 
         try {
             foreach ($_POST['votes'] as $position_id => $candidate_id) {
-                // Encrypt Candidate ID
+                // Encrypt Candidate ID for the database vault
                 $encrypted_candidate = openssl_encrypt($candidate_id, $encryption_method, $key, 0, $iv);
                 
                 $insert = $dbh->prepare("INSERT INTO votes (election_id, position_id, candidate_id, voter_ip) VALUES (?, ?, ?, ?)");
                 $insert->execute([$election_id, $position_id, $encrypted_candidate, $_SERVER['REMOTE_ADDR']]);
 
-                // Prepare Summary for Email
+                // Fetch details for email receipt
                 $posInfo = $dbh->prepare("SELECT title FROM positions WHERE id = ?");
                 $posInfo->execute([$position_id]);
                 $pName = $posInfo->fetchColumn();
 
-                $canInfo = $dbh->prepare("SELECT u.full_name FROM candidates c JOIN users u ON c.user_id = u.id WHERE c.id = ?");
+                $canInfo = $dbh->prepare("SELECT u.full_name, u.nickname FROM candidates c JOIN users u ON c.user_id = u.id WHERE c.id = ?");
                 $canInfo->execute([$candidate_id]);
-                $cName = $canInfo->fetchColumn();
+                $cData = $canInfo->fetch(PDO::FETCH_ASSOC);
 
-                $vote_summary_html .= "<li><strong>$pName:</strong> $cName</li>";
+                $vote_summary_html .= "
+                <div style='padding: 10px; border-bottom: 1px solid #edf2f7;'>
+                    <span style='color: #718096; font-size: 12px; text-transform: uppercase;'>$pName</span><br>
+                    <strong style='color: #2d3748;'>".$cData['full_name']." (".$cData['nickname'].")</strong>
+                </div>";
             }
             
             $updateUser = $dbh->prepare("UPDATE users SET has_voted = 1 WHERE id = ?");
@@ -62,40 +66,39 @@ try {
             
             $dbh->commit();
 
-            // Email Notification Logic
-            $subject = "Official Ballot Receipt: " . $election['title'];
+            // Beautiful Email Notification
+            $subject = " Official Ballot Receipt: " . $election['title'];
             $email_body = "
             <html>
-            <body style='font-family: Arial, sans-serif; color: #333; background-color: #f4f7f6; padding: 20px;'>
-                <div style='max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; background: white;'>
-                    <div style='background: #1e3a8a; color: white; padding: 30px; text-align: center;'>
-                        <h2 style='margin:0;'>Ballot Confirmed</h2>
-                        <p style='font-size: 14px; opacity: 0.8;'>Election ID: #".$election_id."</p>
+            <body style='font-family: sans-serif; background-color: #f7fafc; padding: 40px;'>
+                <div style='max-width: 600px; margin: auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+                    <div style='background: #1e3a8a; padding: 40px; text-align: center; color: white;'>
+                        <div style='font-size: 48px; margin-bottom: 10px;'>✅</div>
+                        <h2 style='margin:0;'>Vote Confirmed</h2>
+                        <p style='opacity: 0.8;'>Ballot ID: ".uniqid('V-')."</p>
                     </div>
-                    <div style='padding: 30px;'>
+                    <div style='padding: 40px;'>
                         <p>Hello <strong>".htmlspecialchars($voter_details['full_name'])."</strong>,</p>
-                        <p>Your choices for <strong>".htmlspecialchars($election['title'])."</strong> have been successfully encrypted and stored.</p>
+                        <p>Your electronic ballot for <strong>".htmlspecialchars($election['title'])."</strong> has been securely encrypted and cast.</p>
                         
-                        <h3 style='color:#1e3a8a;'>Your Vote Summary:</h3>
-                        <ul style='background: #f8fafc; padding: 20px; border-radius: 8px; list-style: none;'>
+                        <div style='background: #f8fafc; border-radius: 12px; padding: 20px; margin-top: 25px;'>
+                            <h4 style='margin-top:0; color: #1e3a8a;'>Receipt Summary:</h4>
                             $vote_summary_html
-                        </ul>
-
-                        <div style='margin-top:20px; padding:15px; background:#fff3cd; border-radius:5px; color:#856404;'>
-                            <strong>Notice:</strong> Please await the official announcement of results after the ELECO committee completes the manual vote verification and audit process.
                         </div>
 
-                       
+                        <div style='margin-top:30px; padding:20px; border-radius:8px; background-color: #fffaf0; border-left: 4px solid #ed8936; color: #7b341e; font-size: 14px;'>
+                            <strong>Audit Protection:</strong> This receipt confirms your participation. The contents are stored in our encrypted vault until the verification window opens.
+                        </div>
                     </div>
-                    <div style='background: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; border-top: 1px solid #eee;'>
-                         <p>&copy; ".date('Y')." ".htmlspecialchars($app_name).". All rights reserved.</p>
+                    <div style='background: #edf2f7; padding: 20px; text-align: center; font-size: 12px; color: #718096;'>
+                         <p>&copy; ".date('Y')." ".htmlspecialchars($app_name).". Security Powered by AES-256-CBC.</p>
                     </div>
                 </div>
             </body>
             </html>";
 
             sendEmail($voter_details['email'], $subject, $email_body);
-            log_activity($dbh, $user_id, "voted successfully in election #$election_id", $_SERVER['REMOTE_ADDR']);
+            log_activity($dbh, $user_id, "casted secure ballot in election #$election_id", $_SERVER['REMOTE_ADDR']);
 
             header("Location: vote_success");
             exit;
@@ -124,6 +127,10 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="icon" href="../<?php echo htmlspecialchars($app_logo); ?>" type="image/x-icon">
+    <style>
+        .candidate-card:hover .candidate-img { transform: scale(1.05); }
+        .modal-active { display: flex !important; }
+    </style>
 </head>
 <body class="bg-gray-50 font-sans">
     <nav class="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-50">
@@ -137,80 +144,136 @@ try {
         </div>
     </div>
 
-    <header class="bg-white py-10 px-4">
+    <header class="bg-white py-10 px-4 shadow-sm">
         <div class="container mx-auto text-center max-w-3xl">
             <h2 class="text-3xl font-extrabold text-gray-800 mb-4"><?php echo htmlspecialchars($election['title']); ?></h2>
-            <div class="bg-amber-50 border-l-4 border-amber-400 p-4 text-left inline-block w-full">
-                <div class="flex">
-                    <div class="flex-shrink-0"><i class="fas fa-shield-alt text-amber-500"></i></div>
-                    <div class="ml-3">
-                        <p class="text-sm text-amber-800">
-                            <strong>Security Protocol:</strong> All votes are encrypted. Results are released only after formal <strong>verification and audit</strong>.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <p class="text-gray-500 mb-6">Select your preferred candidates below. Your vote is confidential and encrypted.</p>
         </div>
     </header>
 
     <main class="container mx-auto px-4 py-8">
-        <form id="ballotForm" method="POST" class="max-w-4xl mx-auto space-y-8">
+        <form id="ballotForm" method="POST" class="max-w-5xl mx-auto space-y-12">
             <?php foreach ($positions as $pos): ?>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="bg-gray-800 p-4 text-white flex justify-between items-center">
-                    <h3 class="font-bold uppercase tracking-widest text-sm"><?php echo htmlspecialchars($pos['title']); ?></h3>
-                    <span class="text-xs bg-blue-600 px-2 py-1 rounded">Select 1</span>
+            <div class="space-y-4">
+                <div class="flex items-center space-x-4 border-b-2 border-blue-900 pb-2">
+                    <h3 class="font-black uppercase tracking-tighter text-2xl text-blue-900"><?php echo htmlspecialchars($pos['title']); ?></h3>
+                    <span class="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-bold">PICK ONE</span>
                 </div>
                 
-                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <?php
                     $canStmt = $dbh->prepare("SELECT c.*, u.full_name, u.nickname FROM candidates c JOIN users u ON c.user_id = u.id WHERE c.position_id = ? AND c.status = 'approved'");
                     $canStmt->execute([$pos['id']]);
                     while ($candidate = $canStmt->fetch()):
+                        // Get Vote Count (Decryption required in a real audit, but here we count entries associated with candidate_id)
+                        // Note: If candidate_id is stored ENCRYPTED in the votes table, we compare with the encrypted version
+                        $encrypted_search = openssl_encrypt($candidate['id'], $encryption_method, $key, 0, $iv);
+                        $countStmt = $dbh->prepare("SELECT COUNT(*) FROM votes WHERE candidate_id = ?");
+                        $countStmt->execute([$encrypted_search]);
+                        $vote_count = $countStmt->fetchColumn();
                     ?>
-                    <label class="relative flex items-center p-4 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-blue-50 transition-all group has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                        <input type="radio" name="votes[<?php echo $pos['id']; ?>]" value="<?php echo $candidate['id']; ?>" class="hidden" required>
-                        <img src="../<?php echo $candidate['photo'] ?: 'default.png'; ?>" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm mr-4">
-                        <div class="flex-1">
-                            <p class="font-bold text-gray-900"><?php echo htmlspecialchars($candidate['full_name']); ?></p>
-                            <p class="text-xs text-gray-500 mb-1 italic">"<?php echo htmlspecialchars($candidate['nickname']); ?>"</p>
-                        </div>
-                        <div class="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center group-has-[:checked]:border-blue-600 group-has-[:checked]:bg-blue-600">
-                            <i class="fas fa-check text-white text-xs opacity-0 group-has-[:checked]:opacity-100"></i>
-                        </div>
-                    </label>
+                    <div class="candidate-card relative bg-white rounded-3xl shadow-md border border-gray-200 p-5 transition-all hover:shadow-xl">
+                        <label class="cursor-pointer block">
+                            <input type="radio" name="votes[<?php echo $pos['id']; ?>]" value="<?php echo $candidate['id']; ?>" class="peer hidden" required>
+                            
+                            <div class="overflow-hidden rounded-2xl mb-4 bg-gray-100">
+                                <img src="../<?php echo $candidate['photo'] ?: 'default.png'; ?>" 
+                                     class="candidate-img w-40 h-40 object-cover transition-transform duration-500">
+                            </div>
+
+                            <div class="text-center">
+                                <h4 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars($candidate['full_name']); ?></h4>
+                                <p class="text-blue-600 font-medium mb-2">@<?php echo htmlspecialchars($candidate['nickname']); ?></p>
+                                
+                                <div class="flex items-center justify-center space-x-2 mb-4">
+                                    <span class="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg text-sm font-bold">
+                                        <i class="fas fa-chart-bar mr-1"></i> <?php echo number_format($vote_count); ?> Votes
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="absolute top-4 right-4 w-8 h-8 rounded-full border-4 border-white bg-gray-200 flex items-center justify-center peer-checked:bg-green-500 peer-checked:border-green-200 transition-all shadow-lg">
+                                <i class="fas fa-check text-white text-xs opacity-0 peer-checked:opacity-100"></i>
+                            </div>
+                            
+                            <div class="absolute inset-0 border-4 border-transparent peer-checked:border-green-500 rounded-3xl pointer-events-none transition-all"></div>
+                        </label>
+
+                        <button type="button" 
+                                onclick="openManifesto('<?php echo addslashes($candidate['full_name']); ?>', '<?php echo addslashes($candidate['manifesto']); ?>')"
+                                class="w-full mt-2 text-blue-600 hover:text-blue-800 text-sm font-semibold underline decoration-2 underline-offset-4">
+                            View Manifesto
+                        </button>
+                    </div>
                     <?php endwhile; ?>
                 </div>
             </div>
             <?php endforeach; ?>
 
-            <div class="pt-6 text-center">
-                <button type="button" onclick="confirmVote()" class="w-full bg-green-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl hover:bg-green-700 transform hover:scale-[1.02] transition-all">
-                    <i class="fas fa-lock mr-2"></i> SUBMIT VOTE
+            <div class="pt-10 max-w-md mx-auto">
+                <button type="button" onclick="confirmVote()" class="w-full bg-green-600 text-white py-6 rounded-3xl font-black text-2xl shadow-2xl hover:bg-green-700 transform hover:scale-[1.05] transition-all">
+                    <i class="fas fa-paper-plane mr-2"></i> SUBMIT BALLOT
                 </button>
                 <input type="hidden" name="cast_vote" value="1">
+                <p class="text-center text-gray-400 text-xs mt-4 uppercase tracking-widest">End-to-End Encrypted</p>
             </div>
         </form>
     </main>
 
+    <div id="manifestoModal" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl transform transition-all animate-in fade-in zoom-in duration-300">
+            <div class="bg-blue-900 p-6 text-white flex justify-between items-center">
+                <h3 id="modalName" class="text-xl font-bold">Candidate Manifesto</h3>
+                <button onclick="closeManifesto()" class="text-white/80 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="modalContent" class="p-8 max-h-[70vh] overflow-y-auto prose text-gray-700 leading-relaxed">
+                </div>
+            <div class="p-4 bg-gray-50 text-right border-t">
+                <button onclick="closeManifesto()" class="bg-gray-200 px-6 py-2 rounded-xl font-bold text-gray-700 hover:bg-gray-300">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+    function openManifesto(name, text) {
+        document.getElementById('modalName').innerText = name + "'s Manifesto";
+        document.getElementById('modalContent').innerHTML = text || "No manifesto provided for this candidate.";
+        document.getElementById('manifestoModal').classList.add('modal-active');
+    }
+
+    function closeManifesto() {
+        document.getElementById('manifestoModal').classList.remove('modal-active');
+    }
+
     function confirmVote() {
         const form = document.getElementById('ballotForm');
         if (!form.checkValidity()) {
-            Swal.fire({ icon: 'error', title: 'Incomplete Ballot', text: 'Please select a candidate for every position.' });
+            Swal.fire({ 
+                icon: 'warning', 
+                title: 'Incomplete Ballot', 
+                text: 'You must select one candidate for every position before submitting.',
+                confirmButtonColor: '#1e3a8a'
+            });
             return;
         }
         Swal.fire({
-            title: 'Cast Your Final Vote?',
-            html: "Your choices will be <strong>encrypted</strong>. You cannot vote again.",
-            icon: 'question',
+            title: 'Are you sure?',
+            html: "By clicking confirm, your choices will be <b>locked and encrypted</b>. This action is irreversible.",
+            icon: 'shield',
             showCancelButton: true,
-            confirmButtonText: 'Yes, Submit Ballot'
+            confirmButtonColor: '#059669',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, Confirm My Vote'
         }).then((result) => { if (result.isConfirmed) form.submit(); });
     }
+
+    // Close modal on escape key
+    window.addEventListener('keydown', (e) => {
+        if(e.key === 'Escape') closeManifesto();
+    });
     </script>
     
-    <footer class="bg-gray-900 text-gray-400 py-10">
+    <footer class="bg-gray-900 text-gray-400 py-10 mt-20">
         <?php include('../footer.php'); ?>
     </footer>
 </body>

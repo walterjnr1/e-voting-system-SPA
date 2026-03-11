@@ -74,6 +74,8 @@ foreach ($rawVotes as $row) {
         .candidate-img { width: 35px; height: 35px; border-radius: 6px; object-fit: cover; border: 1px solid #eee; }
         .ip-badge { font-family: 'Courier New', monospace; font-size: 0.8rem; background: #f8f9fa; border: 1px solid #dee2e6; padding: 2px 6px; border-radius: 4px; }
         .encryption-tag { font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; background: #e0e7ff; color: #4338ca; font-weight: bold; }
+        .btn-vote { background-color: #0a192f; color: white; border: none; transition: 0.3s; }
+        .btn-vote:hover { background-color: #162a4a; color: #fff; transform: translateY(-2px); }
     </style>
 </head>
 <body>
@@ -90,13 +92,16 @@ foreach ($rawVotes as $row) {
         </div>
 
         <div class="p-3 p-md-4">
-            <div class="mb-4 d-flex justify-content-between align-items-center">
+            <div class="mb-4 d-flex justify-content-between align-items-start">
                 <div>
                     <h4 class="fw-bold text-dark">Votes Record</h4>
                     <p class="text-muted small">Live decrypted audit trail of the secure vote vault</p>
                 </div>
-                <div class="text-end">
-                    <span class="badge bg-primary">Total Ballots: <?= number_format($total_results) ?></span>
+                <div class="d-flex gap-2">
+                    <a href="../election/ballot" target="_blank" class="btn btn-vote btn-sm px-3 shadow-sm">
+                        <i class="fas fa-vote-yea me-2"></i>Cast Vote
+                    </a>
+                    <span class="badge bg-primary d-flex align-items-center">Total Ballots: <?= number_format($total_results) ?></span>
                 </div>
             </div>
 

@@ -1,9 +1,5 @@
 <?php
-session_start([
-  'cookie_httponly' => true,
-  'cookie_secure'  => true, // HTTPS only
-  'use_strict_mode'=> true
-]);
+    session_start();
 
 error_reporting(1);
 include('../database/connection.php'); 
@@ -28,37 +24,6 @@ $row_election= $stmt->fetch();
 $title            = $row_election['title'];
 $election_id      = $row_election['id'];
 
-// 4. Inactivity & Alert Logic
-$timeout_duration = 900; // Corrected to 15 minutes (900s)
-
-if (isset($_SESSION['user_id'])) {
- $user_id = $_SESSION["user_id"];
-$session_token = $_SESSION['session_token'] ?? null;
-
-    // Check for inactivity
-    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > $timeout_duration) {
-        
-     // Update logout_time in voter_sessions table
-    if ($session_token) {
-        $updateSession = $dbh->prepare("UPDATE voter_sessions SET logout_time = NOW() WHERE session_token = ? AND user_id = ? AND logout_time IS NULL");
-        $updateSession->execute([$session_token, $user_id]);
-    }
-        // Log activity before destroying
-        if (function_exists('log_activity')) {
-            log_activity($dbh, $user_id,'System auto-logout due to inactivity',  $ip_address);
-        }
-        
-        session_unset();
-        session_destroy();
-        
-        // Redirect with reason
-       header("Location: login?reason=timeout");
-
-        exit;
-    }
-    
-    // Update activity timestamp
-    $_SESSION['last_activity'] = time();
 
     // Fetch Logged-in User Data
     $stmt = $dbh->prepare("SELECT * FROM users WHERE id = ?");
@@ -66,13 +31,8 @@ $session_token = $_SESSION['session_token'] ?? null;
     $row_user = $stmt->fetch();
     $role = $row_user['role'] ?? '';
 
-} else {
-    // If NOT logged in, check if we just got redirected by a timeout to set the alert
-    if (isset($_GET['reason']) && $_GET['reason'] === 'timeout') {
-      echo "<script>alert('Error: Logged out due to 15 minutes of inactivity!');</script>";
 
-    }
-}
+
 
 // 5. Statistics (Only fetch if needed for dashboard performance)
 if (isset($role) && ($role === 'admin' || $role === 'eleco')) {

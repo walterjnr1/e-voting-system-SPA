@@ -32,18 +32,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             // 2. Validate Credentials
-            if (!$user || !password_verify($password, $user['password'])) {
-                $error = "Invalid email or password.";
+            if (!$user) {
+                // Email doesn't exist
+                $error = "No account found with that email address.";
                 
-                // Log Failed Login to table
-                $failed_uid = $user ? $user['id'] : null;
+                // Log Failed Login (User null)
                 $logFailed = $dbh->prepare("INSERT INTO failed_login (user_id, ip_address, attempt_time) VALUES (?, ?, NOW())");
-                $logFailed->execute([$failed_uid, $ip_address]);
+                $logFailed->execute([null, $ip_address]);
+
+            } elseif (!password_verify($password, $user['password'])) {
+                // Password incorrect
+                $error = "Incorrect password. Please try again.";
+                
+                // Log Failed Login
+                $logFailed = $dbh->prepare("INSERT INTO failed_login (user_id, ip_address, attempt_time) VALUES (?, ?, NOW())");
+                $logFailed->execute([$user['id'], $ip_address]);
 
             } elseif ($user['status'] === 'suspended') {
                 $error = "Your account has been suspended. Please contact support.";
             } elseif ((int)$user['is_verified'] !== 1) {
-                // SPECIFIC VERIFICATION ERROR
                 $error = "Your account has not yet been verified by Eleco. Please wait for approval.";
             } else {
                 // 3. SUCCESSFUL LOGIN - INITIALIZE SESSION
@@ -87,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                                 <div style="background:#f8fafc; border:1px solid #cbd5e1; display:inline-block; padding:15px 30px; margin:20px 0; font-size:32px; font-weight:bold; letter-spacing:8px; color:#1e3a8a; border-radius:8px;">
                                     ' . $otp_code . '
                                 </div>
-                                <p style="color:#ef4444; font-size:14px;"><strong>Note:</strong> This code expires in 15 minutes.</p>
+                                <p style="color:#ef4444; font-size:14px;"><strong>Note:</strong> This code expires after 24 hours.</p>
                             </div>
                             <div style="background:#f1f5f9; padding:20px; text-align:center;">
                                 <div style="margin-bottom:10px;">
@@ -116,7 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                     $mail->Subject = "Login OTP - " . $app_name;
                     $mail->Body    = $htmlMessage;
                     $mail->send();
-                } catch (Exception $e) { }
+                } catch (Exception $e) { 
+                    // Silent fail for mail, but you could log $e->getMessage() here
+                }
 
                 // 6. Set Sessions and Redirect
                 $_SESSION['temp_user_id'] = $user_id;
@@ -129,13 +138,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_btn'])) {
                 exit;
             }
         } catch (PDOException $e) {
-            $error = "System error. Please try again later.";
+            $error = "A system error occurred. Please contact the administrator.";
         }
     } else {
-        $error = "Please enter both email and password.";
+        $error = "Please provide a valid email and your password.";
     }
 }
 ?>
+
+
 
 <!DOCTYPE html>
 <html lang="en">

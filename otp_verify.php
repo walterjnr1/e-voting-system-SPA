@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_btn'])) {
             $current_time = time();
             $minutes_passed = ($current_time - $created_at) / 60;
 
-            if ($minutes_passed > 15) {
+            if ($minutes_passed > 1440) {
                 $error = "This code has expired. Please click 'Resend Email'.";
             } elseif ($input_code == $otp_record['code']) {
                 // SUCCESS: Finalize the login
@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_otp'])) {
                 <div style="padding:30px;">
                     <p>Your new 5-digit verification code is:</p>
                     <h1 style="letter-spacing:10px; color:#1e3a8a; font-size:40px;">' . $new_otp . '</h1>
-                    <p style="color:#ef4444;">This code expires in 15 minutes.</p>
+                    <p style="color:#ef4444;">This code expires after 24 hours.</p>
                 </div>
                 <div style="padding:20px; background:#f9f9f9;">
                      <a href="#"><img src="'.$facebook_icon.'" width="24" style="margin:0 5px;"></a>

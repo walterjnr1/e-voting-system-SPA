@@ -190,12 +190,28 @@ if ($election_id) {
 </div>
                 </div>
 
-                <div>
-                    <label class="block text-gray-700 font-semibold mb-2">Manifesto</label>
-                    <textarea name="manifesto" rows="5" required 
-                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" 
-                              placeholder="Tell the alumni why they should vote for you..."></textarea>
-                </div>
+               <div>
+    <label class="block text-gray-700 font-semibold mb-2 flex justify-between">
+        <span>Manifesto</span>
+        <span id="charCount" class="text-sm font-normal text-gray-500">0 / 150</span>
+    </label>
+    
+    <textarea 
+        name="manifesto" 
+        id="manifestoField"
+        rows="5" 
+        maxlength="150" 
+        required 
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+        placeholder="Tell the alumni why they should vote for you..."
+        oninput="updateCount()"></textarea>
+    
+    <p id="limitWarning" class="text-xs text-red-500 mt-1 hidden italic">
+        Character limit reached.
+    </p>
+</div>
+
+
 
                 <div class="bg-gray-50 p-6 rounded-xl border-2 border-dashed border-gray-300 text-center">
                     <label class="block text-gray-700 font-semibold mb-2">Upload Official Portrait</label>
@@ -250,7 +266,26 @@ if ($election_id) {
             btn.style.opacity = '0.8';
         });
     </script>
-
+<script>
+function updateCount() {
+    const textarea = document.getElementById('manifestoField');
+    const countDisplay = document.getElementById('charCount');
+    const warning = document.getElementById('limitWarning');
+    const currentLength = textarea.value.length;
+    
+    // Update the counter text
+    countDisplay.innerText = `${currentLength} / 150`;
+    
+    // Change color and show warning if limit is hit
+    if (currentLength >= 150) {
+        countDisplay.classList.replace('text-gray-500', 'text-red-600');
+        warning.classList.remove('hidden');
+    } else {
+        countDisplay.classList.replace('text-red-600', 'text-gray-500');
+        warning.classList.add('hidden');
+    }
+}
+</script>
     <footer class="bg-gray-900 text-gray-400 py-10">
         <?php include('footer.php'); ?>
     </footer>
