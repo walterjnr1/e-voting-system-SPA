@@ -41,7 +41,7 @@ $qualifiedVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <style>
         .text-xs { font-size: 0.72rem; }
         .voted-badge { font-size: 0.65rem; padding: 4px 10px; border-radius: 50px; }
-        .voter-avatar { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: 2px solid #e9ecef; }
+        .voter-avatar { width: 70px; height: 70px; object-fit: cover; border-radius: 50%; border: 2px solid #e9ecef; }
         .nickname-tag { font-size: 0.68rem; background: #e0e7ff; color: #4338ca; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
         @media print {
             #sidebar, .navbar-custom, .btn, .input-group, .card-footer, .nickname-tag { display: none !important; }

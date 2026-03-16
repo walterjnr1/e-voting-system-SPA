@@ -171,7 +171,7 @@ if ($election['allow_result_view'] == 0) {
                                 <div>
                                     <div class="flex justify-between items-center mb-2">
                                         <div class="flex items-center">
-                                            <img src="../${cand.photo || 'assets/images/default.png'}" class="w-8 h-8 rounded-full mr-2 object-cover border border-gray-200">
+                                            <img src="../${cand.photo || 'assets/images/default.png'}" class="w-24 h-24 rounded-full mr-2 object-cover border border-gray-200">
                                             <span class="font-bold text-gray-700">${cand.name}</span>
                                         </div>
                                         <span class="text-blue-600 font-black">${cand.votes} <small class="text-gray-400 text-[10px]">VOTES</small></span>

@@ -2,9 +2,6 @@
 include('../inc/app_data.php');
 include '../database/connection.php'; 
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 if (empty($_SESSION['user_id'])) {
     $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
@@ -21,7 +18,7 @@ $total_stmt = $dbh->query("SELECT COUNT(*) FROM users ");
 $total_results = $total_stmt->fetchColumn();
 $total_pages = ceil($total_results / $limit);
 
-// Updated query to include user_image
+// Query to include user_image
 $stmt = $dbh->prepare("SELECT * FROM users ORDER BY id DESC LIMIT $start, $limit");
 $stmt->execute();
 $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -41,7 +38,8 @@ $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .toggle-icon:hover { transform: scale(1.2); color: #4f46e5; }
         .text-xs { font-size: 0.72rem; }
         .voted-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .voter-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid #eef2ff; }
+        /* Expanded width and height for the image */
+        .voter-avatar { width: 70px; height: 70px; border-radius: 12px; object-fit: cover; border: 2px solid #eef2ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
@@ -91,14 +89,14 @@ $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </thead>
                                 <tbody class="small" id="tableBody">
                                     <?php foreach ($allVoters as $row): 
-                                        $image_path = !empty($row['user_image']) ? '../' . $row['user_image'] : 'https://ui-avatars.com/api/?name=' . urlencode($row['full_name']) . '&background=4f46e5&color=fff';
+                                        $image_path = !empty($row['user_image']) ? '../' . $row['user_image'] : 'https://ui-avatars.com/api/?name=' . urlencode($row['full_name']) . '&background=4f46e5&color=fff&size=100';
                                     ?>
                                     <tr>
                                         <td class="ps-3">
                                             <div class="d-flex align-items-center">
                                                 <img src="<?= $image_path ?>" 
                                                      class="voter-avatar me-3" 
-                                                     alt="Profile"
+                                                     alt="Profile" 
                                                      onerror="this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png'">
                                                 <div>
                                                     <div class="fw-bold text-dark"><?= htmlspecialchars($row['full_name']) ?></div>
@@ -164,7 +162,7 @@ $allVoters = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <script>
     function confirmToggle(id, field, newValue) {
-        const readableField = field.replace('_', ' ');
+        const readableField = field.replace(/_/g, ' ');
         if (confirm(`Change ${readableField} to "${newValue}" for this voter?`)) {
             window.location.href = `update_voter_status.php?id=${id}&field=${field}&value=${newValue}`;
         }

@@ -29,10 +29,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         header("Location: profile");
         exit;
     }
+
     $full_name = htmlspecialchars(trim($_POST['fullname']));
     $email     = htmlspecialchars(trim($_POST['email']));
     $phone     = htmlspecialchars(trim($_POST['phone']));
-    $nickname     = htmlspecialchars(trim($_POST['nickname']));
+    $nickname  = htmlspecialchars(trim($_POST['nickname']));
+    
+    $image_path = $user['user_image']; // Keep current image by default
+
+    // --- HANDLE IMAGE UPLOAD ---
+    if (!empty($_FILES['profile_pix']['name'])) {
+        $target_dir = "../uploadImage/Profile/";
+        
+        // Ensure directory exists
+        if (!file_exists($target_dir)) {
+            mkdir($target_dir, 0755, true);
+        }
+
+        $file_ext = strtolower(pathinfo($_FILES['profile_pix']['name'], PATHINFO_EXTENSION));
+        $allowed_ext = ['jpg', 'jpeg', 'png'];
+        $max_size = 2 * 1024 * 1024; // 2MB
+
+        if (!in_array($file_ext, $allowed_ext)) {
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Invalid file type. Only JPG, JPEG, & PNG allowed.'];
+        } elseif ($_FILES['profile_pix']['size'] > $max_size) {
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'File too large. Max size is 2MB.'];
+        } else {
+            $new_filename = "profile_" . $user_id . "_" . time() . "." . $file_ext;
+            $upload_path = $target_dir . $new_filename;
+
+            if (move_uploaded_file($_FILES['profile_pix']['tmp_name'], $upload_path)) {
+                // Delete old image if it exists and isn't a default
+                if (!empty($user['user_image']) && file_exists("../" . $user['user_image'])) {
+                    unlink("../" . $user['user_image']);
+                }
+                $image_path = "uploadImage/Profile/" . $new_filename;
+            }
+        }
+    }
 
     // Check if email is being changed and if new email already exists elsewhere
     $checkEmail = $dbh->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
@@ -41,16 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     if ($checkEmail->rowCount() > 0) {
         $_SESSION['toast'] = ['type' => 'error', 'message' => 'This email is already taken by another account.'];
     } else {
-        $update = $dbh->prepare("UPDATE users SET full_name = ?, email = ?, phone = ?,nickname = ? WHERE id = ?");
-        $result = $update->execute([$full_name, $email, $phone,$nickname, $user_id]);
+        $update = $dbh->prepare("UPDATE users SET full_name = ?, email = ?, phone = ?, nickname = ?, user_image = ? WHERE id = ?");
+        $result = $update->execute([$full_name, $email, $phone, $nickname, $image_path, $user_id]);
 
         if ($result) {
-            // Log Activity
             log_activity($dbh, $user_id, "Profile Update", $ip_address);
-
             $_SESSION['toast'] = ['type' => 'success', 'message' => 'Profile updated successfully!'];
-             // Regenerate CSRF for next action
-                    unset($_SESSION['csrf_token']);
+            unset($_SESSION['csrf_token']);
             header("Location: profile");
             exit;
         } else {
@@ -71,7 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     <link rel="icon" href="../<?php echo $app_logo; ?>" type="image/x-icon">
     <style>
         .profile-header-bg { background: #0a192f; height: 100px; border-radius: 10px 10px 0 0; }
-        .profile-avatar { width: 100px; height: 100px; margin-top: -50px; border: 5px solid #fff; background: #e9ecef; color: #0a192f; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+        .profile-avatar { width: 100px; height: 100px; margin-top: -50px; border: 5px solid #fff; background: #e9ecef; color: #0a192f; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; overflow: hidden; }
+        .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
     </style>
 </head>
 <body>
@@ -100,7 +132,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                         <div class="profile-header-bg"></div>
                         <div class="card-body text-center">
                             <div class="profile-avatar rounded-circle mx-auto shadow-sm">
-                                <i class="fas fa-user"></i>
+                                <?php if(!empty($user['user_image']) && file_exists("../".$user['user_image'])): ?>
+                                    <img src="../<?php echo $user['user_image']; ?>" alt="Profile">
+                                <?php else: ?>
+                                    <i class="fas fa-user"></i>
+                                <?php endif; ?>
                             </div>
                             <h5 class="mt-3 fw-bold"><?php echo htmlspecialchars($user['full_name']); ?></h5>
                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 mb-3">
@@ -110,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                             <div class="text-start">
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="text-muted small">Financial Status:</span>
-                                    <span class="fw-bold small <?php echo $user['financial_status'] == 'cleared' ? 'text-success' : 'text-danger'; ?>">
+                                    <span class="fw-bold small <?php echo $user['financial_status'] == 'active' ? 'text-success' : 'text-danger'; ?>">
                                         <?php echo ucfirst($user['financial_status']); ?>
                                     </span>
                                 </div>
@@ -126,10 +162,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                                         <?php echo ucfirst($user['status']); ?>
                                     </span>
                                 </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted small">Last Login:</span>
-                                    <span class="text-dark small fw-bold"><?php echo date('d M, Y H:i', strtotime($user['last_login'])); ?></span>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -141,10 +173,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                             <h6 class="mb-0 fw-bold text-primary"><i class="fas fa-edit me-2"></i>Update Personal Information</h6>
                         </div>
                         <div class="card-body p-4">
-                            <form action="" method="POST" id="profileForm" class="needs-validation" novalidate>
-                               <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                            <form action="" method="POST" id="profileForm" enctype="multipart/form-data" class="needs-validation" novalidate>
+                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
     
-                            <div class="row g-4">
+                                <div class="row g-4">
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Profile Photo</label>
+                                        <input type="file" name="profile_pix" class="form-control" accept=".jpg,.jpeg,.png">
+                                        <div class="form-text text-muted">Leave blank if you don't want to change it. (Max: 2MB)</div>
+                                    </div>
                                     <div class="col-md-12">
                                         <label class="form-label fw-semibold">Full Name</label>
                                         <input type="text" name="fullname" class="form-control" value="<?php echo htmlspecialchars($user['full_name']); ?>" required>
@@ -162,12 +199,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                                         <input type="tel" name="phone" class="form-control" value="<?php echo htmlspecialchars($user['phone']); ?>" required>
                                     </div>
                                     
-                                    <div class="col-12">
-                                        <div class="alert alert-info border-0 small mb-0">
-                                            <i class="fas fa-info-circle me-2"></i> Role, Financial Status, and Voting permissions are managed by the administrator.
-                                        </div>
-                                    </div>
-
                                     <div class="col-12 text-end">
                                         <hr class="my-3">
                                         <button type="submit" name="update_profile" id="submitBtn" class="btn btn-primary px-5" style="background-color: #0a192f; border: none;">
@@ -194,7 +225,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 <script>
     document.getElementById('profileForm').addEventListener('submit', function (event) {
         const form = event.target;
-        
         if (!form.checkValidity()) {
             event.preventDefault();
             event.stopPropagation();
@@ -212,6 +242,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         spinner.classList.remove('d-none');
     });
 </script>
- 
 </body>
 </html>

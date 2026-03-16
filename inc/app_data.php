@@ -1,5 +1,5 @@
 <?php
-    session_start();
+ session_start();
 
 error_reporting(1);
 include('../database/connection.php'); 
@@ -11,6 +11,9 @@ date_default_timezone_set('Africa/Lagos');
 $current_date = date('Y-m-d H:i:s');
 $ip_address = $_SERVER['REMOTE_ADDR'];
 
+
+
+$user_id = $_SESSION['user_id'];
 // 3. Website Settings (Moved outside so they are available even when logged out)
 $stmt = $dbh->query("SELECT * FROM website_settings LIMIT 1");
 $row_website = $stmt->fetch();

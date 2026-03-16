@@ -6,7 +6,6 @@ require 'email_vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-
 // --- CSRF TOKEN GENERATION ---
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -27,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
     $phone = trim($_POST['phone'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
-    $captured_image = $_POST['user_image'] ?? ''; // Base64 data from webcam
+    $captured_image = $_POST['user_image'] ?? ''; 
     $role = 'voter';
 
     if ($full_name && $nickname && $email && $phone && $password && !empty($captured_image)) {
@@ -35,7 +34,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
             $error = "Passwords do not match.";
         } else {
             try {
-                // Check if User Already Exists
                 $check = $dbh->prepare("SELECT id FROM users WHERE email = ? OR phone = ? LIMIT 1");
                 $check->execute([$email, $phone]);
                 
@@ -44,39 +42,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
                 } else {
                     // --- PROCESS WEBCAM IMAGE ---
                     $final_db_path = "";
-                    if (preg_match('/^data:image\/(\w+);base64,/', $captured_image, $type)) {
-                        $data = substr($captured_image, strpos($captured_image, ',') + 1);
-                        $type = strtolower($type[1]); // jpg, png, etc
-                        $data = base64_decode($data);
+                    
+                    // Sanitize the Base64 input to prevent ModSecurity triggers
+                    if (strpos($captured_image, 'data:image') === 0) {
+                        $img_parts = explode(";base64,", $captured_image);
+                        $img_type_aux = explode("image/", $img_parts[0]);
+                        $img_type = $img_type_aux[1];
+                        $img_base64 = base64_decode($img_parts[1]);
                         
-                        $img_filename = 'voter_' . time() . '_' . uniqid() . '.' . $type;
+                        $img_filename = 'voter_' . time() . '_' . uniqid() . '.' . $img_type;
                         $directory = 'uploadImage/Profile/';
-                        $upload_path = $directory . $img_filename;
                         
-                        // Ensure directory exists
-                        if (!is_dir($directory)) { 
-                            mkdir($directory, 0777, true); 
+                        // Fix 403: Ensure directory exists with correct permissions
+                        if (!file_exists($directory)) {
+                            mkdir($directory, 0755, true); 
                         }
                         
-                        if (file_put_contents($upload_path, $data)) {
+                        $upload_path = $directory . $img_filename;
+                        
+                        if (file_put_contents($upload_path, $img_base64)) {
                             $final_db_path = $upload_path; 
+                        } else {
+                            $error = "Server Permission Error: Cannot write to $directory. Check folder permissions (755).";
                         }
                     }
 
-                    if (empty($final_db_path)) {
-                        $error = "Failed to process identity photo. Please try again.";
-                    } else {
-                        // Hash password
+                    if (empty($final_db_path) && empty($error)) {
+                        $error = "Failed to process identity photo. Ensure your camera is working.";
+                    } elseif (!empty($final_db_path)) {
                         $hashed_password = password_hash($password, PASSWORD_BCRYPT);
 
-                        // Insert User with specific user_image format
                         $stmt = $dbh->prepare("INSERT INTO users (full_name, nickname, email, phone, password, user_image, role, is_verified, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())");
                         $result = $stmt->execute([$full_name, $nickname, $email, $phone, $hashed_password, $final_db_path, $role]);
 
                         if ($result) {
-                            $success = "Registration successful! Your account is pending verification.";
-
-                            // --- SEND NOTIFICATION EMAIL ---
+                            $success = "Registration successful! Account pending verification.";
+                                                       // --- SEND NOTIFICATION EMAIL ---
                             try {
                                 $facebook_icon  = "https://cdn-icons-png.flaticon.com/512/733/733547.png";
                                 $twitter_icon   = "https://cdn-icons-png.flaticon.com/512/5969/5969020.png";
@@ -123,7 +124,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
                                 $mail->Subject = "Voter Registration";
                                 $mail->Body    = $htmlMessage;
                                 $mail->send();
-                            } catch (Exception $e) { /* Silent fail */ }
+
+                            } catch (Exception $e) { }
                         }
                     }
                 }
@@ -132,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
             }
         }
     } else {
-        $error = "All fields, including a live photo capture, are mandatory.";
+        $error = "All fields, including a live photo, are mandatory.";
     }
 }
 ?>
@@ -145,7 +147,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="icon" href="<?php echo htmlspecialchars($app_logo); ?>" type="image/x-icon">
-
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col font-sans">
 
@@ -170,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
                 </div>
             <?php endif; ?>
 
-            <form action="" method="POST" id="regForm" class="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="POST" id="regForm" class="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <input type="hidden" name="user_image" id="user_image_input">
                 
@@ -225,20 +226,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
                             <i class="fas fa-redo mr-2"></i> Retake Photo
                         </button>
                     </div>
-                    <p class="text-[10px] text-gray-400 mt-4 text-center leading-tight">Must be a live photo of your face.<br>Background should be clear and well-lit.</p>
                 </div>
 
                 <div class="lg:col-span-2">
                     <button type="submit" name="register_btn" id="submitBtn"
                             class="w-full bg-[#1e3a8a] text-white font-black py-4 rounded-xl shadow-xl hover:bg-blue-900 transition-all duration-300 flex justify-center items-center uppercase tracking-widest">
-                        <span id="btnText">Submit<i class="fas fa-shield-check ml-2"></i></span>
+                        <span id="btnText">Submit Registration</span>
                         <div id="btnSpinner" class="hidden animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                     </button>
-                </div>
-                <div class="flex justify-between items-center text-sm">
-                    <a href="forgot_password" class="text-blue-600 hover:underline">Forgot password?</a>
-                    <span class="text-gray-400">|</span>
-                    <a href="login" class="text-blue-600 font-bold hover:underline">Login Here</a>
                 </div>
             </form>
         </div>
@@ -255,11 +250,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
         async function initWebcam() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 640, facingMode: "user" } 
+                    video: { width: 400, height: 400, facingMode: "user" } 
                 });
                 video.srcObject = stream;
             } catch (err) {
-                alert("Camera access is strictly required for identity verification.");
+                console.error(err);
+                alert("Please enable camera access. 403 errors can occur if the browser blocks the media stream.");
             }
         }
 
@@ -267,13 +263,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
             const context = canvas.getContext('2d');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            
-            // Flip horizontally for natural mirror feel
             context.translate(canvas.width, 0);
             context.scale(-1, 1);
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            const dataUrl = canvas.toDataURL('image/png');
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // Reduced quality to 0.7 to shrink string size
             imageInput.value = dataUrl;
             
             preview.src = dataUrl;
@@ -291,21 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_btn'])) {
             retakeBtn.classList.add('hidden');
         });
 
-        document.getElementById('regForm').addEventListener('submit', function (e) {
-            if (!imageInput.value) {
-                e.preventDefault();
-                alert("Please capture your identity photo to continue.");
-                return;
-            }
-            document.getElementById('btnText').classList.add('hidden');
-            document.getElementById('btnSpinner').classList.remove('hidden');
-        });
-
         initWebcam();
     </script>
-
-    <footer class="bg-gray-900 text-gray-400 py-10">
-        <?php include('footer.php'); ?>
-    </footer>
 </body>
 </html>

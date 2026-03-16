@@ -19,7 +19,7 @@ $total_results = $total_stmt->fetchColumn();
 $total_pages = ceil($total_results / $limit);
 
 // Fetch Paginated Data for all users
-$stmt = $dbh->prepare("SELECT id, full_name, email, role, is_verified, created_at FROM users ORDER BY id DESC LIMIT $start, $limit");
+$stmt = $dbh->prepare("SELECT id, full_name, email, role, is_verified, created_at FROM users where role='eleco' ORDER BY id DESC LIMIT $start, $limit");
 $stmt->execute();
 $allUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
